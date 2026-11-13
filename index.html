@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Zeiterfassung</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.openai.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zeit">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111111">
+<meta name="format-detection" content="telephone=no">
+<!-- Manifest und Icons ergaenzt Paket F, der Service Worker Paket G -->
+<link rel="stylesheet" href="style.css?v=0.1.0">
+</head>
+<body>
+<div class="ver">html 0.1.0 · <span id="jsver">js ?</span></div>
+<main>
+  <!-- Ansicht Aufnahme -->
+  <section id="view-record" class="view" aria-label="Aufnahme">
+    <header class="top">
+      <div id="last" class="last">Noch kein Eintrag</div>
+      <div id="status" class="status s-ready" role="status" aria-live="polite">Bereit</div>
+      <div id="detail" class="detail"></div>
+      <div id="hinweis" class="hinweis" hidden></div>
+    </header>
+    <div class="center">
+      <button id="rec" type="button" aria-label="Halten zum Sprechen">Halten &amp; sprechen</button>
+    </div>
+    <div class="scroll bottom">
+      <div id="pending" class="pending" hidden></div>
+      <h2 class="listhead">Heute</h2>
+      <ul id="results" class="results"></ul>
+      <p id="leer" class="leer" hidden>Heute noch keine Einträge.</p>
+    </div>
+  </section>
+
+  <!-- Ansicht Auswertung (Paket D) -->
+  <section id="view-stats" class="view" aria-label="Auswertung" hidden>
+    <h1>Auswertung</h1>
+    <div id="stats-body" class="scroll"></div>
+  </section>
+
+  <!-- Ansicht Einstellungen (Key und Protokoll: Paket A; Toepfe, Daten: Paket E) -->
+  <section id="view-settings" class="view" aria-label="Einstellungen" hidden>
+    <h1>Einstellungen</h1>
+    <div id="settings-body" class="scroll"></div>
+  </section>
+</main>
+
+<nav class="nav" aria-label="Ansichten">
+  <button type="button" data-view="record" aria-current="page">Aufnahme</button>
+  <button type="button" data-view="stats">Auswertung</button>
+  <button type="button" data-view="settings">Einstellungen</button>
+</nav>
+<script type="module" src="js/main.js?v=0.1.0"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Tests</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; background: #111; color: #eee; margin: 16px; }
+  h1 { font-size: 18px; }
+  #summary { font-weight: 700; padding: 6px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px; }
+  #summary.gruen { background: #1b6b2f; } #summary.rot { background: #8a1f1f; } #summary.lauf { background: #555; }
+  li { margin: 2px 0; list-style: none; } .ok::before { content: "OK  "; color: #6fcf8a; } .fail::before { content: "FEHLER  "; color: #ff6b6b; }
+  .grp { color: #9ab; margin-top: 10px; } pre { color: #ffb4b4; white-space: pre-wrap; margin: 2px 0 6px 24px; }
+</style>
+</head>
+<body>
+<h1>Tests Zeiterfassung</h1>
+<div id="summary" class="lauf">läuft …</div>
+<ul id="out"></ul>
+<!-- Weitere Testdateien in tests/main.js eintragen. Die Tests benutzen eigene Datenbanken und eigene
+     localStorage-Namen und beruehren weder Key noch Eintraege der App. -->
+<script type="module" src="tests/main.js"></script>
+</body>
+</html>
