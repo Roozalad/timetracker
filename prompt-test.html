@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Prompt-Test Zuordnung</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.openai.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="prompt-test.css?v=0.2.0">
+</head>
+<body>
+<h1>Prompt-Test Zuordnung</h1>
+<p id="attrappe" class="attrappe" hidden>ATTRAPPE: Es wird nichts gesendet. Die Antworten kommen aus tests/zuordnung-attrappe.js (gültig, falsch und unbrauchbar gemischt).</p>
+<p id="info" class="info"></p>
+
+<section class="box" aria-label="API-Key">
+  <div id="key-da" hidden>Key gespeichert (endet auf <code id="key-ende"></code>), nur im lokalen Speicher dieses Browsers. <button type="button" id="key-weg">Key entfernen</button></div>
+  <div id="key-fehlt" hidden>
+    <label for="key-feld">OpenAI-API-Key</label>
+    <input id="key-feld" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…">
+    <button type="button" id="key-speichern">Speichern</button>
+    <div class="klein">Der Key bleibt im lokalen Speicher dieses Browsers für diese Adresse und geht nur an api.openai.com.</div>
+  </div>
+</section>
+
+<section class="box" aria-label="Einstellungen">
+  <label>Modell <input id="modell" type="text" spellcheck="false"></label>
+  <label>Reasoning <select id="reasoning"><option>none</option><option>low</option><option>medium</option><option>high</option></select></label>
+  <label>Läufe je Fall <input id="laeufe" type="number" min="1" max="10" value="3"></label>
+  <label>Parallel <input id="parallel" type="number" min="1" max="8" value="4"></label>
+  <label>Nur Fälle <input id="filter" type="text" placeholder="z. B. F07,F14 (leer = alle)" spellcheck="false"></label>
+  <div class="knoepfe">
+    <button type="button" id="start" class="haupt">Alle Fälle ausführen</button>
+    <button type="button" id="stopp" disabled>Abbrechen</button>
+  </div>
+</section>
+
+<div id="gesamt" class="gesamt">Noch nicht ausgeführt.</div>
+<table id="tabelle">
+  <thead><tr><th>Fall</th><th>Läufe</th><th>Ergebnis</th></tr></thead>
+  <tbody id="zeilen"></tbody>
+</table>
+
+<section class="box" aria-label="Rückmeldung">
+  <button type="button" id="kopieren" disabled>Ergebnis in die Zwischenablage</button>
+  <span id="kopiert" class="klein"></span>
+  <textarea id="text" readonly rows="10" aria-label="Ergebnis als Text" hidden></textarea>
+</section>
+
+<details class="box"><summary>Systemprompt <span id="pv"></span></summary><pre id="prompt"></pre></details>
+
+<script type="module" src="tests/prompt-test.js?v=0.2.0"></script>
+</body>
+</html>

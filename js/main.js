@@ -1,12 +1,13 @@
 'use strict';
 /* Start, Navigation, Verdrahtung. */
-import { CONFIG } from './config.js?v=0.1.0';
-import { log } from './log.js?v=0.1.0';
-import * as db from './db.js?v=0.1.0';
-import * as pipeline from './pipeline.js?v=0.1.0';
-import { initRecord } from './ui-record.js?v=0.1.0';
-import { initStats } from './ui-stats.js?v=0.1.0';
-import { initSettings } from './ui-settings.js?v=0.1.0';
+import { CONFIG } from './config.js?v=0.2.0';
+import { log } from './log.js?v=0.2.0';
+import * as db from './db.js?v=0.2.0';
+import * as pipeline from './pipeline.js?v=0.2.0';
+import { zuordnen } from './zuordnen.js?v=0.2.0';
+import { initRecord } from './ui-record.js?v=0.2.0';
+import { initStats } from './ui-stats.js?v=0.2.0';
+import { initSettings } from './ui-settings.js?v=0.2.0';
 
 const $ = (id) => document.getElementById(id);
 
@@ -19,8 +20,7 @@ async function start() {
   try { await db.oeffneDb(); } catch (e) { dbFehler = e; log(`IndexedDB nicht nutzbar: ${e && e.message}`); }
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (_) {}
 
-  // Paket C: hier die Zuordnung einhaengen, z. B.
-  //   import { zuordnen } from './categorize-anbindung.js?v=...'; pipeline.registriereZuordnung(zuordnen);
+  pipeline.registriereZuordnung(zuordnen); // Schritt 3: Zuordnung mit categorize, Segmente speichern
 
   // Navigation
   const ansichten = {};

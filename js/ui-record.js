@@ -1,32 +1,40 @@
 'use strict';
-/* Ansicht Aufnahme: Kopfzeile, Button, Bestaetigung, wartende Eintraege, Liste der heutigen Eintraege.
-   Ergebniskarte, Korrekturblatt und manueller Block ergaenzt Paket C (siehe renderEintrag). */
-import { createRecorder } from './recorder.js?v=0.1.0';
-import * as pipeline from './pipeline.js?v=0.1.0';
-import * as db from './db.js?v=0.1.0';
-import { log } from './log.js?v=0.1.0';
-import { maskiere } from './key.js?v=0.1.0';
-import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.1.0';
+/* Ansicht Aufnahme (8.1): Kopfzeile, Button, Bestaetigung, wartende Eintraege, Ergebniskarten der heutigen Eintraege
+   mit Korrekturblatt, Block von Hand, "Neu zuordnen" und "Eintrag loeschen". */
+import { createRecorder } from './recorder.js?v=0.2.0';
+import * as pipeline from './pipeline.js?v=0.2.0';
+import * as db from './db.js?v=0.2.0';
+import * as aktionen from './aktionen.js?v=0.2.0';
+import { log } from './log.js?v=0.2.0';
+import { maskiere } from './key.js?v=0.2.0';
+import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.2.0';
+import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.2.0';
+import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.2.0';
 
 const STATUS_TEXT = {
   wartet_transkription: 'Wartet auf Transkription',
-  wartet_zuordnung: 'Transkript gespeichert',
+  wartet_zuordnung: 'Wartet auf Zuordnung',
   fertig: 'Fertig',
   fehler: 'Fehler',
 };
 const BESTAETIGUNG_MS = 1500;
+const STIMMUNG_ZEICHEN = { '-2': '−−', '-1': '−', '0': '±0', '1': '+', '2': '++' };
 
 /** ctx: { zeigeAnsicht(name), dbFehler: Error|null } */
 export function initRecord(root, ctx) {
   const q = (s) => root.querySelector(s);
   const el = { last: q('#last'), status: q('#status'), detail: q('#detail'), hinweis: q('#hinweis'), rec: q('#rec'),
-               pending: q('#pending'), results: q('#results'), leer: q('#leer') };
+               dauer: q('#dauerhinweis'), pending: q('#pending'), results: q('#results'), leer: q('#leer'), hand: q('#handblock') };
 
   let recState = 'bereit', startedAt = 0, tick = null, pointerDown = false;
   let outcome = { kind: 'ready', text: 'Bereit', detail: '' };
   let flash = null;               // kurze Bestaetigung "Gesendet": { text, bis }
   let pipeBusy = false;
-  let letzter = null, toepfe = [];
+  let pipeFehlerSichtbar = false; // Fehlertext des letzten Laufs steht im Status (nicht noch einmal in der Wartebox)
+  let laufMitFehlerEintrag = false;
+  let letzter = null, toepfe = [], segmente = [];
+  let dauerHinweis = '';          // "Hoechstdauer erreicht", bleibt bis zur naechsten Aufnahme sichtbar
+  const offeneTranskripte = new Set();
   let direktListe = [];           // nur Sitzung: ohne Speicher direkt gesendete Aufnahmen
   let aktTicket = 0;
 
@@ -45,6 +53,7 @@ export function initRecord(root, ctx) {
     el.status.className = `status s-${o.kind}`;
     el.status.textContent = o.text;
     el.detail.textContent = o.detail || '';
+    el.dauer.hidden = !dauerHinweis; el.dauer.textContent = dauerHinweis;
 
     const aktiv = pointerDown && (recState === 'startet' || recState === 'nimmt_auf');
     el.rec.classList.toggle('active', aktiv);
@@ -81,7 +90,7 @@ export function initRecord(root, ctx) {
     if (letzter) {
       t = `Letzter Eintrag ${vorZeitText(letzter.zeit)}`;
       const a = letzter.angekuendigt;
-      if (a && a.text) {
+      if (a && a.text && gleicherTag(letzter.zeit, Date.now())) {
         const topf = toepfe.find((x) => x.id === a.topfId);
         t = `Läuft seit ${uhrzeit(letzter.zeit)}: ${topf ? `${topf.name} – ` : ''}${a.text}`;
       }
@@ -89,29 +98,118 @@ export function initRecord(root, ctx) {
     el.last.textContent = t;
   }
 
-  // Paket C ersetzt diese Funktion durch die Ergebniskarte (Segmente, Ab jetzt, Stimmung, Korrektur).
+  // ------------------------------------------------------------ Ergebniskarte (8.1)
+  const E = (tag, klasse, text) => { const x = document.createElement(tag); if (klasse) x.className = klasse; if (text != null) x.textContent = text; return x; };
+  function topfInfo(id) {
+    if (id === UNKLAR) return { name: 'Unklar', farbe: UNKLAR_FARBE, unter: [] };
+    const t = toepfe.find((x) => x.id === id);
+    return t ? { name: t.name, farbe: t.farbe, unter: t.unter || [] } : { name: String(id), farbe: '#777', unter: [] };
+  }
+  const unterName = (info, id) => { const u = info.unter.find((x) => x.id === id); return u ? u.name : ''; };
+  function punkt(farbe) { const p = E('span', 'punkt'); p.style.background = farbe; return p; }
+
+  /** "10:00–10:30 · Startup · Mails": eine Zeile, antippbar fuer die Korrektur. */
+  function segmentZeile(s) {
+    const info = topfInfo(s.topfId), u = s.unterId ? unterName(info, s.unterId) : '';
+    const b = E('button', `seg${s.topfId === UNKLAR ? ' unklar' : ''}`);
+    b.type = 'button'; b.dataset.segment = s.id;
+    const teile = [`${uhrzeit(s.start)}–${uhrzeit(s.ende)}`, u ? `${info.name} › ${u}` : info.name];
+    if (s.text) teile.push(s.text);
+    b.append(punkt(info.farbe), E('span', 'seg-text', teile.join(' · ')));
+    b.addEventListener('click', () => oeffneKorrektur(s));
+    return b;
+  }
+
+  function oeffneKorrektur(s) {
+    zeigeKorrektur({
+      toepfe, segment: s, vorgabe: { start: s.start, ende: s.ende },
+      onSpeichern: async (a) => { await aktionen.segmentKorrigieren(s.id, a); await aktualisiere(); },
+      onLoeschen: async () => { await aktionen.segmentLoeschen(s.id); await aktualisiere(); },
+    });
+  }
+  /** Block von Hand: eintrag gesetzt = Block gehoert zu dieser Karte, Vorgabe ist deren Fenster; sonst das aktuelle Fenster. */
+  function oeffneHandblock(eintrag) {
+    const jetzt = Date.now();
+    const vorgabe = eintrag
+      ? blockVorgabe(eintrag.zeit, eintrag.fensterStart)
+      : blockVorgabe(jetzt, letzter && gleicherTag(letzter.zeit, jetzt) ? letzter.zeit : null);
+    zeigeKorrektur({
+      toepfe, segment: null, vorgabe,
+      onSpeichern: async (a) => { await aktionen.blockAnlegen({ ...a, eintragId: eintrag ? eintrag.id : null }); await aktualisiere(); },
+    });
+  }
+  async function neuZuordnen(e) {
+    if (!(await aktionen.neuZuordnen(e.id))) return;
+    await aktualisiere();
+    pipeline.starte('Neu zuordnen', { manuell: true });
+  }
+  async function eintragLoeschen(e) {
+    const ok = await frage({ titel: 'Eintrag löschen?', text: `Der Eintrag von ${uhrzeit(e.zeit)} und alle seine Blöcke werden gelöscht. Das lässt sich nicht rückgängig machen.`, ja: 'Löschen', gefahr: true });
+    if (!ok) return;
+    try { await aktionen.eintragLoeschen(e.id); } catch (err) { log(`Löschen fehlgeschlagen: ${maskiere(err && err.message)}`); }
+    await aktualisiere();
+  }
+  const aktion = (text, fn, klasse = 'knopf') => { const b = E('button', klasse, text); b.type = 'button'; b.addEventListener('click', fn); return b; };
+
   function renderEintrag(e) {
-    const li = document.createElement('li');
-    li.className = `st-${e.status}`;
-    const kopf = document.createElement('div'); kopf.className = 'kopf';
-    const z = document.createElement('span'); z.className = 'zeit'; z.textContent = uhrzeit(e.zeit);
-    const s = document.createElement('span'); s.className = 'badge'; s.textContent = STATUS_TEXT[e.status] || e.status;
-    kopf.append(z, s);
-    const t = document.createElement('div'); t.className = 'text';
-    if (e.transkript) t.textContent = e.transkript;
-    else if (e.status === 'fertig') t.textContent = 'Nichts erkannt';
-    else if (e.status === 'wartet_transkription') t.textContent = 'Aufnahme gespeichert, noch nicht transkribiert.';
-    li.append(kopf, t);
-    if (e.fehler && e.status !== 'fertig') {
-      const m = document.createElement('div'); m.className = 'meta'; m.textContent = e.fehler; li.append(m);
+    const li = E('li', `karte st-${e.status}`);
+    li.dataset.eintrag = e.id;
+    const kopf = E('div', 'kopf');
+    kopf.append(E('span', 'zeit', uhrzeit(e.zeit)), E('span', 'badge', STATUS_TEXT[e.status] || e.status));
+    li.append(kopf);
+
+    const segs = segmente.filter((s) => s.eintragId === e.id).sort((a, b) => a.start - b.start);
+    const warten = e.status === 'wartet_transkription' || e.status === 'wartet_zuordnung';
+    if (e.status === 'wartet_transkription') li.append(E('div', 'text', 'Aufnahme gespeichert, noch nicht transkribiert.'));
+    if (e.status === 'wartet_zuordnung') li.append(E('div', 'text', 'Transkript gespeichert, wartet auf die Zuordnung.'));
+    if (e.status === 'fehler') {
+      li.append(E('div', 'text fehlertext', e.fehler || 'Die Zuordnung ist fehlgeschlagen.'),
+        E('div', 'meta', 'Mit „Neu zuordnen“ nochmal versuchen oder einen Block von Hand anlegen.'));
     }
+    const lis = E('div', 'segs'); for (const s of segs) lis.append(segmentZeile(s));
+    if (segs.length) li.append(lis);
+
+    const a = e.angekuendigt;
+    const nichts = e.status === 'fertig' && !segs.length && !(a && a.text);
+    if (nichts) li.append(E('div', 'text nichts', 'Nichts erkannt'));
+    if (a && a.text) {
+      const info = topfInfo(a.topfId), u = a.unterId ? unterName(info, a.unterId) : '';
+      const z = E('div', 'abjetzt'); z.append(punkt(info.farbe), E('span', null, `Ab jetzt: ${u ? `${info.name} › ${u}` : info.name} – ${a.text}`));
+      li.append(z);
+    }
+    if (e.stimmung) {
+      li.append(E('div', 'stimmung', `Stimmung: ${e.stimmung.stichwort || '–'} (${STIMMUNG_ZEICHEN[String(e.stimmung.wert)] || e.stimmung.wert})`));
+    }
+    if (e.unklar && e.status !== 'wartet_zuordnung') li.append(E('div', 'meta unklar-hinweis', `Unklar: ${e.unklar}`));
+
+    if (e.transkript) {
+      const d = E('details', 'transkript'); d.append(E('summary', null, 'Transkript'), E('p', null, e.transkript));
+      d.open = offeneTranskripte.has(e.id); // bleibt beim Neuzeichnen aufgeklappt
+      d.addEventListener('toggle', () => { if (d.open) offeneTranskripte.add(e.id); else offeneTranskripte.delete(e.id); });
+      li.append(d);
+    }
+
+    const akt = E('div', 'karten-aktionen');
+    if (e.transkript && !warten) akt.append(aktion('Neu zuordnen', () => neuZuordnen(e)));
+    if (nichts || e.status === 'fehler') akt.append(aktion('Block von Hand', () => oeffneHandblock(e)));
+    akt.append(aktion('Eintrag löschen', () => eintragLoeschen(e), 'knopf gefahr-text'));
+    li.append(akt);
+    return li;
+  }
+
+  /** Von Hand angelegter Block ohne Eintrag: eigene schmale Karte. */
+  function renderHandblock(s) {
+    const li = E('li', 'karte handblock');
+    const kopf = E('div', 'kopf'); kopf.append(E('span', 'zeit', uhrzeit(s.ende)), E('span', 'badge', 'Von Hand'));
+    li.append(kopf);
+    const lis = E('div', 'segs'); lis.append(segmentZeile(s)); li.append(lis);
     return li;
   }
 
   async function aktualisiere() {
     const ticket = ++aktTicket;
     let eintraege = [], n = 0;
-    try { eintraege = await db.listEintraege(); toepfe = await db.listToepfe(); n = await pipeline.wartendeAnzahl(); } catch (_) {}
+    try { eintraege = await db.listEintraege(); toepfe = await db.listToepfe(); segmente = await db.listSegmente(); n = await pipeline.wartendeAnzahl(); } catch (_) {}
     if (ticket !== aktTicket) return; // neuere Aktualisierung laeuft
     letzter = eintraege.length ? eintraege[eintraege.length - 1] : null;
     renderKopf();
@@ -124,8 +222,9 @@ export function initRecord(root, ctx) {
       const t = document.createElement('div');
       t.textContent = n === 1 ? '1 Aufnahme wartet' : `${n} Aufnahmen warten`;
       el.pending.append(t);
+      // Fehlertext nur hier, wenn er nicht schon im Hinweis (Key) oder im Status (letzter Lauf) steht
       const mitFehler = warten.find((e) => e.fehler);
-      if (mitFehler) { const g = document.createElement('div'); g.className = 'grund'; g.textContent = mitFehler.fehler; el.pending.append(g); }
+      if (mitFehler && !pipeline.zustand().blockiert && !pipeFehlerSichtbar) { const g = document.createElement('div'); g.className = 'grund'; g.textContent = mitFehler.fehler; el.pending.append(g); }
       const b = document.createElement('button'); b.type = 'button';
       b.textContent = pipeBusy ? 'Sendet …' : 'Jetzt senden'; b.disabled = pipeBusy;
       b.addEventListener('click', () => pipeline.starte('Knopfdruck', { manuell: true }));
@@ -145,8 +244,11 @@ export function initRecord(root, ctx) {
       const t = document.createElement('div'); t.className = 'text'; t.textContent = d.text || 'Nichts erkannt';
       li.append(kopf, t); el.results.append(li);
     }
-    for (const e of heute) el.results.append(renderEintrag(e));
-    el.leer.hidden = heute.length > 0 || direktListe.length > 0;
+    // Karten der Eintraege und von Hand angelegte Bloecke ohne Eintrag, neueste oben
+    const hand = segmente.filter((s) => s.eintragId == null && gleicherTag(s.start, jetzt));
+    const karten = [...heute.map((e) => ({ t: e.zeit, e })), ...hand.map((s) => ({ t: s.ende, s }))].sort((a, b) => b.t - a.t);
+    for (const k of karten) el.results.append(k.e ? renderEintrag(k.e) : renderHandblock(k.s));
+    el.leer.hidden = karten.length > 0 || direktListe.length > 0;
     renderHinweis();
     render();
   }
@@ -156,6 +258,7 @@ export function initRecord(root, ctx) {
     zustand(z, info) {
       recState = z;
       clearInterval(tick); tick = null;
+      if (z === 'startet') dauerHinweis = ''; // neue Aufnahme: alter Hinweis weg
       if (z === 'nimmt_auf') {
         startedAt = info.startedAt;
         tick = setInterval(() => { const s = el.rec.querySelector('#sek'); if (s) s.textContent = dauerText((performance.now() - startedAt) / 1000); }, 250);
@@ -190,21 +293,30 @@ export function initRecord(root, ctx) {
       flash = null;
       setOutcome('error', info.art === 'mikrofon_verweigert' ? 'Mikrofon nicht erlaubt' : 'Fehler', info.meldung);
     },
-    hinweis(text) { outcome = { ...outcome, detail: text }; render(); },
+    // z. B. "Hoechstdauer von 5 min erreicht": steht ausserhalb des Status, damit es das Beenden der Aufnahme ueberlebt
+    hinweis(text) { dauerHinweis = text; render(); },
   });
 
   pipeline.abonniere((ev) => {
-    if (ev.typ === 'lauf_start') { pipeBusy = true; render(); aktualisiere(); }
+    if (ev.typ === 'lauf_start') { pipeBusy = true; laufMitFehlerEintrag = false; render(); aktualisiere(); }
     else if (ev.typ === 'lauf_ende') {
       pipeBusy = false;
+      pipeFehlerSichtbar = false;
       if (ev.fehler) {
         const f = ev.fehler;
-        setOutcome('error', 'Wartet', f.art === 'netz' ? `${f.meldung} – Aufnahme wartet und wird erneut gesendet` : f.meldung);
-      } else if (ev.verarbeitet > 0) setOutcome('done', 'Fertig', 'Transkript gespeichert');
+        if (f.art === 'auth' || f.art === 'kein_key') setOutcome('error', 'Wartet', ''); // Meldung steht nur im Hinweis
+        else { pipeFehlerSichtbar = true; setOutcome('error', 'Wartet', f.art === 'netz' ? `${f.meldung} – Aufnahme wartet und wird erneut gesendet` : f.meldung); }
+      } else if (laufMitFehlerEintrag) setOutcome('error', 'Zuordnung fehlgeschlagen', 'Auf der Karte: „Neu zuordnen“ oder „Block von Hand“');
+      else if (ev.verarbeitet > 0) setOutcome('done', 'Fertig', '');
       else render();
       aktualisiere();
-    } else aktualisiere();
+    } else {
+      if (ev.typ === 'eintrag' && ev.eintrag && ev.eintrag.status === 'fehler') laufMitFehlerEintrag = true;
+      aktualisiere();
+    }
   });
+
+  el.hand.addEventListener('click', () => oeffneHandblock(null));
 
   // ------------------------------------------------------------ Eingabe-Handling (iOS-fest, aus dem Spike)
   const btn = el.rec;

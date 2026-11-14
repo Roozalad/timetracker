@@ -1,7 +1,7 @@
 'use strict';
 /* Reine Zeit-Logik (kein DOM, keine Datenbank): Tag-Regel mit 04:00-Grenze, Zeitfenster, Formate.
    Zeiten sind Millisekunden seit 1970, in Ortszeit des Geraets gedeutet (Abschnitt 6). */
-import { CONFIG } from './config.js?v=0.1.0';
+import { CONFIG } from './config.js?v=0.2.0';
 
 /** Beginn des (04:00-)Tages, zu dem ms gehoert, als ms. */
 export function tagesBeginn(ms, tagesStart = CONFIG.tagesStart) {
@@ -27,6 +27,10 @@ export function fensterStartFuer(zeit, vorherigeZeit, tagesStart = CONFIG.tagesS
 
 const zwei = (n) => String(n).padStart(2, '0');
 export function uhrzeit(ms) { const d = new Date(ms); return `${zwei(d.getHours())}:${zwei(d.getMinutes())}`; }
+
+const WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+/** "Freitag 10:20" (Feld "jetzt" der Zuordnung, 7.2) */
+export function wochentagUhrzeit(ms) { return `${WOCHENTAGE[new Date(ms).getDay()]} ${uhrzeit(ms)}`; }
 
 /** "gerade eben", "vor 47 min", "vor 2 h 5 min", "vor 3 Tagen" */
 export function vorZeitText(ms, jetzt = Date.now()) {

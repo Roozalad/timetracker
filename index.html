@@ -12,10 +12,10 @@
 <meta name="theme-color" content="#111111">
 <meta name="format-detection" content="telephone=no">
 <!-- Manifest und Icons ergaenzt Paket F, der Service Worker Paket G -->
-<link rel="stylesheet" href="style.css?v=0.1.0">
+<link rel="stylesheet" href="style.css?v=0.2.0">
 </head>
 <body>
-<div class="ver">html 0.1.0 · <span id="jsver">js ?</span></div>
+<div class="ver">html 0.2.0 · <span id="jsver">js ?</span></div>
 <main>
   <!-- Ansicht Aufnahme -->
   <section id="view-record" class="view" aria-label="Aufnahme">
@@ -23,6 +23,7 @@
       <div id="last" class="last">Noch kein Eintrag</div>
       <div id="status" class="status s-ready" role="status" aria-live="polite">Bereit</div>
       <div id="detail" class="detail"></div>
+      <div id="dauerhinweis" class="hinweis dauer" role="status" hidden></div>
       <div id="hinweis" class="hinweis" hidden></div>
     </header>
     <div class="center">
@@ -30,7 +31,10 @@
     </div>
     <div class="scroll bottom">
       <div id="pending" class="pending" hidden></div>
-      <h2 class="listhead">Heute</h2>
+      <div class="listkopf">
+        <h2 class="listhead">Heute</h2>
+        <button id="handblock" type="button" class="knopf klein">Block von Hand</button>
+      </div>
       <ul id="results" class="results"></ul>
       <p id="leer" class="leer" hidden>Heute noch keine Einträge.</p>
     </div>
@@ -54,6 +58,6 @@
   <button type="button" data-view="stats">Auswertung</button>
   <button type="button" data-view="settings">Einstellungen</button>
 </nav>
-<script type="module" src="js/main.js?v=0.1.0"></script>
+<script type="module" src="js/main.js?v=0.2.0"></script>
 </body>
 </html>

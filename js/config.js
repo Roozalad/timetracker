@@ -5,7 +5,7 @@
    (Suchen und Ersetzen ueber app/). Ein einheitlicher Zusatz ist wichtig: sonst
    entstehen zwei Instanzen desselben Moduls. */
 export const CONFIG = {
-  version: '0.1.0',
+  version: '0.2.0',
 
   // --- Speicher
   dbName: 'zeiterfassung',
@@ -23,6 +23,17 @@ export const CONFIG = {
   requestTimeoutMs: 60000,
 
   // --- Zuordnung: Modellname und Schnittstelle traegt Paket B hier ein.
+  // Quelle (13.11.2026): developers.openai.com/api/docs/models ("GPT-6 Luna for cost-sensitive,
+  // high-volume workloads"), .../models/gpt-6-luna, .../guides/structured-outputs, Responses-API-Referenz.
+  // CORS am 13.11.2026 geprueft: Preflight und 401-Antwort tragen Access-Control-Allow-Origin: *.
+  zuordnenEndpoint: 'https://api.openai.com/v1/responses',   // Responses API, Structured Outputs ueber text.format
+  zuordnenModell: 'gpt-6-luna',
+  zuordnenReasoning: 'low',        // gpt-6-luna: none|low|medium|high|xhigh|max, Vorgabe der API waere medium
+  zuordnenMaxTokens: 6000,         // max_output_tokens: Begrenzung inkl. Reasoning-Token
+  zuordnenTimeoutMs: 60000,
+  zuordnenWiederholungen: 2,       // unbrauchbare Antwort (Abschnitt 9): so oft nochmal, dann Status 'fehler'
+  // USD je 1 Mio. Token laut Modellseite gpt-6-luna (13.11.2026); nur fuer die Kostenanzeige der Testseite
+  zuordnenPreise: { eingabe: 0.10, eingabeCache: 0.01, eingabeCacheSchreiben: 0.125, ausgabe: 0.50 },
 
   // --- Aufnahme (aus dem Spike, unveraendert in der Sache)
   timesliceMs: 1000,               // WebKit liefert bei <=100 ms leere Blobs; 1000 ms ist sicher

@@ -1,18 +1,19 @@
 'use strict';
-/* Warteschlange (Abschnitt 7.1), Paket A: Schritt 1 und 2.
+/* Warteschlange (Abschnitt 7.1).
      1. Loslassen: Eintrag mit zeit und Status wartet_transkription anlegen, Audio speichern (atomar).
      2. Transkribieren. Erfolg: Transkript speichern, Audio loeschen, Status wartet_zuordnung (atomar).
-     3. Zuordnung: EINHAENGESTELLE fuer Paket C, siehe registriereZuordnung().
+     3. Zuordnung: registriereZuordnung(); main.js haengt zuordnen.js ein. Eintrag und Segmente atomar speichern.
    Regeln: Eintraege strikt in der Reihenfolge ihrer zeit, nie zwei gleichzeitig. Ein Fehler laesst den
    Eintrag im jeweiligen Wartezustand. Schritt 3 wiederholt nie Schritt 2 (der Status entscheidet).
    Wiederholung: beim Oeffnen, bei Rueckkehr in den Vordergrund, bei wiederkehrendem Netz, auf Knopfdruck.
    Key ungueltig/Guthaben leer oder kein Key: keine automatische Wiederholung, bis der Key geaendert
    wird oder die Nutzerin "Jetzt senden" drueckt. */
-import { log } from './log.js?v=0.1.0';
-import { getKey, maskiere } from './key.js?v=0.1.0';
-import { fensterStartFuer } from './zeit.js?v=0.1.0';
-import { transcribe, TranscribeError } from './transcribe.js?v=0.1.0';
-import * as db from './db.js?v=0.1.0';
+import { log } from './log.js?v=0.2.0';
+import { getKey, maskiere } from './key.js?v=0.2.0';
+import { fensterStartFuer } from './zeit.js?v=0.2.0';
+import { transcribe, TranscribeError } from './transcribe.js?v=0.2.0';
+import * as db from './db.js?v=0.2.0';
+import * as aktionen from './aktionen.js?v=0.2.0';
 
 const abonnenten = new Set();
 let laeuft = false;
@@ -32,13 +33,15 @@ export function zustand() {
 }
 
 // ---------------------------------------------------------------- Einhaengestelle fuer Paket C
-/** EINHAENGESTELLE ZUORDNUNG (Schritt 3). Paket C ruft einmal beim Start (main.js) auf:
+/** ZUORDNUNG (Schritt 3). main.js ruft einmal beim Start auf:
       registriereZuordnung(async (eintrag, kontext) => { ... })
     eintrag:  der Eintrag mit Status 'wartet_zuordnung' (transkript, zeit, fensterStart, id, ...).
     kontext:  { vorgaenger } = der Eintrag mit der naechstkleineren zeit oder null (fuer 'angekuendigt').
     Rueckgabe: ein Objekt mit Feldern, die in den Eintrag gemischt werden (z. B. angekuendigt, stimmung,
       unklar, promptVersion). Enthaelt es 'status', gilt dieser (z. B. 'fehler' mit 'fehler'-Text nach
-      zwei erfolglosen Versuchen), sonst wird der Status 'fertig'. Segmente schreibt die Funktion selbst.
+      zwei erfolglosen Versuchen), sonst wird der Status 'fertig'. Das Feld 'segmente' (Liste neuer ki-Segmente,
+      auch leer) kommt nicht in den Eintrag: die Pipeline ersetzt damit atomar die ki-Segmente dieses Eintrags.
+      Fehlt 'segmente', bleiben die Segmente unberuehrt.
     Fehler: wirft die Funktion, bleibt der Eintrag 'wartet_zuordnung'. Hat der Fehler .art === 'auth'
       oder 'kein_key', sperrt die Schlange bis zur Key-Aenderung bzw. zum Knopfdruck; jeder andere
       Fehler gilt als voruebergehend (Netz, Server) und beendet nur diesen Lauf.
@@ -92,17 +95,24 @@ async function bearbeite(e, alle) {
       return;
     }
     const text = await transcribe(new Blob([audio.buf], { type: audio.type }));
-    e = await db.transkriptSpeichern(e.id, text);
+    const gespeichert = await db.transkriptSpeichern(e.id, text);
+    if (!gespeichert) { log(`Eintrag ${e.id}: inzwischen gelöscht`); return; }
+    e = gespeichert;
     log(`Eintrag ${e.id}: Transkript gespeichert (${text.length} Zeichen), Audio gelöscht, Status ${e.status}`);
     melde({ typ: 'eintrag', eintrag: e });
   }
   if (e.status === 'wartet_zuordnung' && zuordnenFn) {
     let vorgaenger = null;
     for (const x of alle) if (x.id !== e.id && x.zeit <= e.zeit && (!vorgaenger || x.zeit >= vorgaenger.zeit)) vorgaenger = x;
+    // Vorgaenger frisch lesen: sein 'angekuendigt' entsteht erst in diesem Lauf
+    if (vorgaenger) vorgaenger = (await db.getEintrag(vorgaenger.id)) || vorgaenger;
     const teil = (await zuordnenFn(e, { vorgaenger })) || {};
-    const neu = await db.updateEintrag(e.id, { status: 'fertig', fehler: null, ...teil });
-    log(`Eintrag ${e.id}: Zuordnung abgeschlossen, Status ${neu.status}`);
-    melde({ typ: 'eintrag', eintrag: neu });
+    // 'segmente' (neue ki-Segmente) gehoert nicht in den Eintrag; Eintrag und Segmente gehen atomar in die Datenbank
+    const { segmente, ...felder } = teil;
+    const r = await aktionen.zuordnungSpeichern(e.id, { status: 'fertig', fehler: null, ...felder }, segmente);
+    if (!r.gefunden) { log(`Eintrag ${e.id}: inzwischen gelöscht, Ergebnis verworfen`); return; }
+    log(`Eintrag ${e.id}: Zuordnung abgeschlossen, Status ${r.eintrag.status}${segmente ? `, ${segmente.length} Segmente` : ''}`);
+    melde({ typ: 'eintrag', eintrag: r.eintrag });
   }
 }
 

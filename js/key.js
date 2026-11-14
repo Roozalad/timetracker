@@ -1,13 +1,16 @@
 'use strict';
 /* API-Key: liegt nur im localStorage dieses Browsers (Datenschutz-Regel 3).
    Nie in Code, Export oder Protokoll. */
-import { CONFIG } from './config.js?v=0.1.0';
+import { CONFIG } from './config.js?v=0.2.0';
 
-let storageName = CONFIG.keyStorage;
+// Der Speichername steht auf globalThis, damit alle Instanzen dieses Moduls dasselbe meinen, auch wenn ein Import
+// mit abweichendem ?v= es ein zweites Mal laedt (sonst saehe z. B. categorize.js einen anderen Test-Speicher).
+const SLOT = '__zeiterfassungKeySpeicher';
+const speicherName = () => (typeof globalThis[SLOT] === 'string' && globalThis[SLOT]) || CONFIG.keyStorage;
 
-export function getKey() { try { return localStorage.getItem(storageName) || ''; } catch (_) { return ''; } }
-export function setKey(v) { try { localStorage.setItem(storageName, v); return true; } catch (_) { return false; } }
-export function removeKey() { try { localStorage.removeItem(storageName); return true; } catch (_) { return false; } }
+export function getKey() { try { return localStorage.getItem(speicherName()) || ''; } catch (_) { return ''; } }
+export function setKey(v) { try { localStorage.setItem(speicherName(), v); return true; } catch (_) { return false; } }
+export function removeKey() { try { localStorage.removeItem(speicherName()); return true; } catch (_) { return false; } }
 /** Nur die letzten vier Zeichen, fuer die Anzeige. */
 export function keyEnde() { const k = getKey(); return k ? k.slice(-4) : ''; }
 
@@ -20,4 +23,4 @@ export function maskiere(text) {
   return t.replace(/sk-[A-Za-z0-9_\-*.]{3,}/g, 'sk-…');
 }
 /** Nur fuer Tests. */
-export function _keySpeicherName(name) { storageName = name; }
+export function _keySpeicherName(name) { globalThis[SLOT] = name; }

@@ -75,6 +75,70 @@ button.knopf, .pending button, .hinweis button, .keyrow button {
 .pending button { margin-top: 6px; }
 button.knopf[disabled], .pending button[disabled] { opacity: .5; }
 
+.hinweis.dauer { background: #3a2f00; text-align: center; }
+.listkopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.listkopf .listhead { margin: 8px 0; }
+button.klein { min-height: 44px; padding: 6px 12px; font-size: 14px; }
+
+/* Ergebniskarten (8.1) */
+.results .karte { padding: 8px 10px 6px; }
+.results .karte .kopf { padding: 0 2px; align-items: baseline; }
+.results .segs { margin-top: 4px; }
+.seg {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 8px; margin: 2px 0;
+  border: 0; border-radius: 8px; background: #262626; color: #eee; font: inherit; font-size: 15px; text-align: left;
+}
+.seg:active { background: #333; }
+.seg.unklar { background: #3a3320; outline: 1px dashed #d9a441; }
+.seg-text { flex: 1; min-width: 0; word-break: break-word; font-variant-numeric: tabular-nums; }
+.punkt { flex: none; width: 14px; height: 14px; border-radius: 50%; background: #777; }
+.abjetzt { display: flex; align-items: center; gap: 8px; margin: 6px 2px 2px; font-size: 15px; color: #ddd; }
+.stimmung { margin: 4px 2px 0; font-size: 14px; color: #bbb; }
+.results .nichts { color: #aaa; font-style: italic; }
+.results .fehlertext { color: #ff9a9a; }
+.results .karte .meta { margin: 4px 2px 0; }
+.transkript { margin: 6px 2px 0; font-size: 14px; color: #bbb; }
+.transkript p { margin: 2px 0 6px; word-break: break-word; }
+.karten-aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.karten-aktionen .knopf { font-size: 14px; padding: 6px 12px; }
+button.gefahr-text { color: #ff8a8a; }
+
+/* Korrekturblatt von unten */
+.blatt-hintergrund { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; }
+.blatt {
+  width: 100%; max-height: 90vh; display: flex; flex-direction: column; background: #1a1a1a; border-radius: 16px 16px 0 0;
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+}
+.blatt-griff { align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #444; margin-bottom: 8px; flex: none; }
+.blatt-titel { font-size: 18px; margin: 0 0 8px; flex: none; }
+.blatt-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 4px; }
+.blatt-text { margin: 0 0 12px; }
+.kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kachel {
+  min-height: 64px; padding: 8px; border: 3px solid transparent; border-radius: 12px; color: #fff; font: inherit; font-size: 17px; font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35); word-break: break-word;
+}
+.kachel.gewaehlt { border-color: #fff; }
+.kachel.gewaehlt::before { content: "✓ "; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chips-titel { width: 100%; font-size: 13px; color: #9a9a9a; }
+.chip { min-height: 44px; padding: 6px 14px; border-radius: 22px; border: 1px solid #555; background: #262626; color: #eee; font: inherit; font-size: 15px; }
+.chip.gewaehlt { background: #eee; color: #111; border-color: #eee; }
+.zeiten { margin-top: 12px; }
+.zeit-zeile { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.zeit-titel { width: 52px; color: #9a9a9a; font-size: 14px; }
+.zeit-wert { flex: 1; text-align: center; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.schritt { min-width: 64px; min-height: 44px; border: 0; border-radius: 8px; background: #333; color: #eee; font: inherit; font-size: 18px; font-weight: 600; }
+.schritt[disabled] { opacity: .35; }
+.zeit-dauer { text-align: center; color: #9a9a9a; font-size: 13px; }
+.blatt-meldung { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #4a1f1f; color: #ffb4b4; font-size: 14px; }
+.blatt-aktionen { display: flex; gap: 8px; margin-top: 14px; }
+.blatt-aktionen .knopf { flex: 1; }
+button.knopf.primaer { background: #e5252a; color: #fff; font-weight: 700; }
+button.knopf.primaer[disabled] { opacity: .4; }
+button.knopf.gefahr { background: #3a2222; color: #ff9a9a; }
+button.knopf.gefahr.bestaetigt { background: #b00020; color: #fff; font-weight: 700; }
+
 /* Einstellungen */
 .abschnitt { background: #1a1a1a; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
 .abschnitt h2 { font-size: 16px; margin: 0 0 8px; }

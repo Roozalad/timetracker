@@ -1,0 +1,30 @@
+body { font: 14px/1.45 system-ui, sans-serif; background: #111; color: #eee; margin: 16px; max-width: 1100px; }
+h1 { font-size: 20px; margin: 0 0 8px; }
+.info { color: #9ab; margin: 0 0 12px; }
+.attrappe { background: #7a5b00; color: #fff; padding: 8px 10px; border-radius: 6px; font-weight: 700; }
+.box { background: #1b1b1b; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; }
+label { display: inline-block; margin: 4px 14px 4px 0; }
+input, select, textarea { background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 5px 7px; font: inherit; }
+input[type="number"] { width: 4em; }
+#modell { width: 11em; } #filter { width: 16em; } #key-feld { width: 22em; max-width: 100%; }
+textarea { width: 100%; box-sizing: border-box; margin-top: 8px; font: 12px/1.35 ui-monospace, Consolas, monospace; }
+button { background: #333; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; min-height: 36px; }
+button.haupt { background: #1d5fa8; border-color: #2a74c6; }
+button:disabled { opacity: .45; cursor: default; }
+.knoepfe { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.klein { color: #999; font-size: 12px; }
+.gesamt { font-weight: 700; padding: 8px 10px; border-radius: 6px; background: #333; margin: 0 0 10px; }
+.gesamt.gruen { background: #1b6b2f; } .gesamt.rot { background: #8a1f1f; } .gesamt.lauf { background: #3a3a55; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid #2a2a2a; }
+th { color: #9ab; font-weight: 600; }
+td.id { white-space: nowrap; }
+.titel { color: #bbb; font-size: 12px; }
+.lauf { display: inline-block; min-width: 1.4em; text-align: center; border-radius: 4px; margin-right: 3px; padding: 0 3px; font-weight: 700; }
+.l-ok { background: #1b6b2f; } .l-falsch { background: #8a1f1f; } .l-fehler { background: #7a5b00; } .l-wartet { background: #333; color: #888; } .l-laeuft { background: #3a3a55; }
+.ok { color: #6fcf8a; font-weight: 700; } .nok { color: #ff6b6b; font-weight: 700; }
+details.fall summary { cursor: pointer; }
+.zeile { margin: 3px 0 3px 0; font: 12px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.soll { color: #9cd; } .ist { color: #ddd; } .ab { color: #ffb4b4; } .err { color: #ffd27a; }
+pre { white-space: pre-wrap; font: 12px/1.4 ui-monospace, Consolas, monospace; color: #ccc; }
+@media (max-width: 600px) { body { margin: 10px 16px; } label { display: block; } }

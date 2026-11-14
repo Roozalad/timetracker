@@ -1,9 +1,9 @@
 'use strict';
 /* Ansicht Einstellungen. Paket A: API-Key (eintragen, ersetzen, entfernen) und Info mit Version und
    aufklappbarem Protokoll. Paket E ergaenzt Toepfe und Daten als weitere Abschnitte (siehe unten). */
-import { CONFIG } from './config.js?v=0.1.0';
-import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.1.0';
-import { logText, abonniereLog, leereLog, log } from './log.js?v=0.1.0';
+import { CONFIG } from './config.js?v=0.2.0';
+import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.2.0';
+import { logText, abonniereLog, leereLog, log } from './log.js?v=0.2.0';
 
 function abschnitt(titel) {
   const s = document.createElement('section'); s.className = 'abschnitt';

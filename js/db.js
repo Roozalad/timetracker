@@ -1,7 +1,7 @@
 'use strict';
 /* IndexedDB: Toepfe, Eintraege, Segmente, Audio (Abschnitt 6).
    Keine Logik ausser Speichern und Lesen. Segment-Pruefung (Ueberlappung) gehoert in segments.js. */
-import { CONFIG } from './config.js?v=0.1.0';
+import { CONFIG } from './config.js?v=0.2.0';
 
 export const ABLAGEN = { toepfe: 'toepfe', eintraege: 'eintraege', segmente: 'segmente', audio: 'audio' };
 
@@ -136,7 +136,7 @@ export async function updateEintrag(id, patch) {
   });
   return neu;
 }
-/** Loescht den Eintrag samt Audio (Segmente raeumt Paket C beim Loeschen ab). */
+/** Loescht nur Eintrag und Audio. Mit Segmenten: aktionen.eintragLoeschen (eine Transaktion). */
 export async function deleteEintrag(id) {
   await transaktion([ABLAGEN.eintraege, ABLAGEN.audio], 'readwrite', (s) => {
     const r = s.eintraege.get(id);
@@ -185,3 +185,39 @@ export const listAudioIds = () => lese(ABLAGEN.audio, (s) => s.getAllKeys());
 export const listSegmente = async () => (await lese(ABLAGEN.segmente, (s) => s.getAll())).sort((a, b) => a.start - b.start);
 export const putSegment = (seg) => schreibe(ABLAGEN.segmente, (s) => s.put(seg));
 export const deleteSegment = (id) => schreibe(ABLAGEN.segmente, (s) => { s.delete(id); });
+
+/** Segmente und optional einen Eintrag in EINER Transaktion aendern: Sperren oder Abbruch mitten drin speichern nichts halb.
+    berechne(bestand) -> { loeschen: [ids], schreiben: [Segmente] } | null  (reine Funktion aus segments.js; sie sieht den
+      Bestand innerhalb der Transaktion, so ueberschreiben sich gleichzeitige Aenderungen nicht). Segmente ohne id werden angelegt.
+    eintrag: null | { id, patch } | { id, loeschen: true } (loescht auch das Audio). Fehlt der Eintrag, wird nichts geschrieben.
+    Liefert { gefunden, eintrag: neuer Stand | null }. */
+export async function segmenteAendern(berechne, eintrag = null) {
+  let neuerEintrag = null, gefunden = true;
+  const ablagen = [ABLAGEN.segmente];
+  if (eintrag) ablagen.push(ABLAGEN.eintraege);
+  if (eintrag && eintrag.loeschen) ablagen.push(ABLAGEN.audio);
+  await transaktion(ablagen, 'readwrite', (s) => {
+    const segmenteSchreiben = () => {
+      if (!berechne) return;
+      const rs = s.segmente.getAll();
+      rs.onsuccess = () => {
+        const erg = berechne(rs.result);
+        if (!erg) return;
+        for (const id of erg.loeschen || []) s.segmente.delete(id);
+        for (const seg of erg.schreiben || []) {
+          if (seg.id == null) { const { id, ...ohneId } = seg; s.segmente.put(ohneId); } else s.segmente.put(seg);
+        }
+      };
+    };
+    if (!eintrag) { segmenteSchreiben(); return; }
+    const re = s.eintraege.get(eintrag.id);
+    re.onsuccess = () => {
+      const e = re.result;
+      if (!e) { gefunden = false; return; }
+      if (eintrag.loeschen) { if (e.audioId != null) s.audio.delete(e.audioId); s.eintraege.delete(e.id); }
+      else { neuerEintrag = { ...e, ...eintrag.patch }; s.eintraege.put(neuerEintrag); }
+      segmenteSchreiben();
+    };
+  });
+  return { gefunden, eintrag: neuerEintrag };
+}
