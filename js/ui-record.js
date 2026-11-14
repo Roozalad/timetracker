@@ -1,15 +1,17 @@
 'use strict';
 /* Ansicht Aufnahme (8.1): Kopfzeile, Button, Bestaetigung, wartende Eintraege, Ergebniskarten der heutigen Eintraege
    mit Korrekturblatt, Block von Hand, "Neu zuordnen" und "Eintrag loeschen". */
-import { createRecorder } from './recorder.js?v=0.3.0';
-import * as pipeline from './pipeline.js?v=0.3.0';
-import * as db from './db.js?v=0.3.0';
-import * as aktionen from './aktionen.js?v=0.3.0';
-import { log } from './log.js?v=0.3.0';
-import { maskiere } from './key.js?v=0.3.0';
-import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.3.0';
-import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.3.0';
-import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.3.0';
+import { createRecorder } from './recorder.js?v=0.4.0';
+import * as pipeline from './pipeline.js?v=0.4.0';
+import * as db from './db.js?v=0.4.0';
+import * as aktionen from './aktionen.js?v=0.4.0';
+import { log } from './log.js?v=0.4.0';
+import { maskiere } from './key.js?v=0.4.0';
+import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.4.0';
+import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.4.0';
+import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.4.0';
+import { LETZTER_EXPORT } from './ui-settings.js?v=0.4.0';
+import { sicherungText, exportZeitAusText } from './sicherung.js?v=0.4.0';
 
 const STATUS_TEXT = {
   wartet_transkription: 'Wartet auf Transkription',
@@ -24,7 +26,7 @@ const STIMMUNG_ZEICHEN = { '-2': '−−', '-1': '−', '0': '±0', '1': '+', '2
 export function initRecord(root, ctx) {
   const q = (s) => root.querySelector(s);
   const el = { last: q('#last'), status: q('#status'), detail: q('#detail'), hinweis: q('#hinweis'), rec: q('#rec'),
-               dauer: q('#dauerhinweis'), pending: q('#pending'), results: q('#results'), leer: q('#leer'), hand: q('#handblock') };
+               dauer: q('#dauerhinweis'), sicherung: q('#sicherung'), pending: q('#pending'), results: q('#results'), leer: q('#leer'), hand: q('#handblock') };
 
   let recState = 'bereit', startedAt = 0, tick = null, pointerDown = false;
   let outcome = { kind: 'ready', text: 'Bereit', detail: '' };
@@ -96,6 +98,21 @@ export function initRecord(root, ctx) {
       }
     }
     el.last.textContent = t;
+  }
+
+  /** Dezente Erinnerung an den Export (8.3), fuehrt zu Einstellungen > Daten. Liest nur, schreibt nichts. */
+  function renderSicherung(eintraege) {
+    let ex = null;
+    try { ex = exportZeitAusText(localStorage.getItem(LETZTER_EXPORT)); } catch (_) {}
+    const alt = eintraege.length ? Math.min(...eintraege.map((e) => e.zeit)) : null;
+    const text = sicherungText({ letzterExport: ex, aeltesterEintrag: alt, jetzt: Date.now() });
+    el.sicherung.textContent = '';
+    el.sicherung.hidden = !text;
+    if (!text) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sicherung-link';
+    b.textContent = `${text} Jetzt sichern`;
+    b.addEventListener('click', () => ctx.zeigeAnsicht('settings', 'daten'));
+    el.sicherung.append(b);
   }
 
   // ------------------------------------------------------------ Ergebniskarte (8.1)
@@ -213,6 +230,7 @@ export function initRecord(root, ctx) {
     if (ticket !== aktTicket) return; // neuere Aktualisierung laeuft
     letzter = eintraege.length ? eintraege[eintraege.length - 1] : null;
     renderKopf();
+    renderSicherung(eintraege);
 
     // wartende Eintraege
     el.pending.textContent = '';

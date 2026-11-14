@@ -12,8 +12,8 @@
      verworfen(info)   info: { grund: 'zu_kurz'|'zu_frueh_losgelassen'|'keine_daten', dauerMs, details }
      fehler(info)      info: { art: 'mikrofon_verweigert'|'nicht_unterstuetzt'|'mikrofon'|'recorder', meldung }
      hinweis(text)     z. B. Hoechstdauer erreicht */
-import { CONFIG } from './config.js?v=0.3.0';
-import { log } from './log.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
+import { log } from './log.js?v=0.4.0';
 
 // iOS Safari: audio/mp4 (AAC). Chrome/Android: audio/webm;codecs=opus. Zur Laufzeit erkennen.
 const MIME_CANDIDATES = [

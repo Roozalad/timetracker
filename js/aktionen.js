@@ -2,8 +2,8 @@
 /* Aenderungen an Segmenten und Eintraegen, jeweils in EINER Datenbank-Transaktion (db.segmenteAendern),
    gerechnet mit der reinen Logik aus segments.js. Genutzt von Pipeline (Zuordnung), Karte und Korrekturblatt.
    Jede Korrektur der Nutzerin setzt quelle 'manuell' und verdraengt alles (7.4). */
-import * as db from './db.js?v=0.3.0';
-import { einfuegen, MIN_MS } from './segments.js?v=0.3.0';
+import * as db from './db.js?v=0.4.0';
+import { einfuegen, MIN_MS } from './segments.js?v=0.4.0';
 
 /** Schritt 3 der Pipeline: Eintrag aktualisieren und, falls neue Segmente uebergeben werden (auch eine leere Liste),
     die ki-Segmente dieses Eintrags durch sie ersetzen. Manuelle Segmente bleiben, die neuen werden um sie herum

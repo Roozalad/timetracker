@@ -2,12 +2,13 @@
 /* Ansicht Einstellungen. Paket A: API-Key (eintragen, ersetzen, entfernen) und Info mit Version und aufklappbarem
    Protokoll. Paket E: Toepfe (Liste, Anlegen, Bearbeiten, Reihenfolge, Archiv, Unterpunkte) und Daten (Export,
    Import, Alles loeschen). baueExport und pruefeImport sind ohne Seite pruefbar (tests/einstellungen.test.js). */
-import { CONFIG } from './config.js?v=0.3.0';
-import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.3.0';
-import { logText, abonniereLog, leereLog, log } from './log.js?v=0.3.0';
-import { frage } from './ui-korrektur.js?v=0.3.0';
-import { ueberlappungen, UNKLAR } from './segments.js?v=0.3.0';
-import * as db from './db.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
+import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.0';
+import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.0';
+import { frage } from './ui-korrektur.js?v=0.4.0';
+import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.0';
+import * as db from './db.js?v=0.4.0';
+import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.0';
 
 export const EXPORT_APP = 'zeiterfassung';
 export const EXPORT_FORMAT = 1;
@@ -502,12 +503,15 @@ export function initSettings(root, ctx = {}) {
   const infoS = abschnitt('Info');
   const ver = document.createElement('div'); ver.className = 'info';
   ver.textContent = `Version ${CONFIG.version}`;
+  const dauer = document.createElement('div'); dauer.className = 'info';
+  const zeigeDauer = () => { dauer.textContent = `Dauerhafter Speicher: ${dauerhaftText()}`; };
+  zeigeDauer(); abonniereDauer(zeigeDauer);
   const det = document.createElement('details');
   const sum = document.createElement('summary'); sum.textContent = 'Protokoll';
   const pre = document.createElement('pre'); pre.className = 'log';
   const leeren = knopf('Protokoll leeren', () => leereLog());
   det.append(sum, pre, leeren);
-  infoS.append(ver, det);
+  infoS.append(ver, dauer, det);
   const zeigeLog = () => { pre.textContent = logText(); };
   abonniereLog(() => { if (det.open) zeigeLog(); });
   det.addEventListener('toggle', zeigeLog);
@@ -519,5 +523,7 @@ export function initSettings(root, ctx = {}) {
   laden();
   return {
     zeige() { zeigeKey(); zeigeLetzter(); laden(); if (det.open) zeigeLog(); },
+    /** Von der Erinnerung in Aufnahme: zum Abschnitt Daten scrollen. */
+    springe(ziel) { if (ziel === 'daten') datenS.scrollIntoView({ block: 'start' }); },
   };
 }

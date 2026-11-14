@@ -1,7 +1,7 @@
 'use strict';
 /* Protokoll: neueste Zeile oben, im Speicher und (zur Nachschau am Geraet) in localStorage.
    Hier landen nie Key, Transkripttext oder Audio. */
-import { CONFIG } from './config.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
 
 const abonnenten = new Set();
 let zeilen = [];

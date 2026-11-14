@@ -1,11 +1,13 @@
 'use strict';
 /* Version, Modellnamen, Grenzwerte. Reine Konstanten, keine Logik, kein Key.
-   Versionierung: CONFIG.version, das ?v= in index.html (style.css, js/main.js) und
-   das ?v= in JEDEM import-Pfad der Module muessen gemeinsam hochgezaehlt werden
-   (Suchen und Ersetzen ueber app/). Ein einheitlicher Zusatz ist wichtig: sonst
-   entstehen zwei Instanzen desselben Moduls. */
+   Versionierung: CONFIG.version, das ?v= in index.html (style.css, js/main.js), das ?v= in
+   JEDEM import-Pfad der Module und VERSION in sw.js muessen gemeinsam hochgezaehlt werden
+   (Suchen und Ersetzen ueber app/, z. B. 0.4.0 -> 0.4.1). Ein einheitlicher Zusatz ist wichtig: sonst
+   entstehen zwei Instanzen desselben Moduls. sw.js haengt den Zwischenspeicher-Namen und alle ?v= seiner
+   Dateiliste an VERSION; tests/offline.test.js prueft die Liste und dass alle Versionen gleich sind.
+   Neue Datei der App: auch in die Liste in sw.js eintragen (der Test sagt, wenn etwas fehlt). */
 export const CONFIG = {
-  version: '0.3.0',
+  version: '0.4.0',
 
   // --- Speicher
   dbName: 'zeiterfassung',

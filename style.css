@@ -243,3 +243,7 @@ button.st-heute { display: block; margin: 8px auto 0; font-size: 14px; padding: 
 .st-summen .gesamt td { border-top: 1px solid #333; font-weight: 700; }
 .st-summen .nicht td { color: #777; font-size: 14px; }
 /* === Ende Paket D === */
+
+/* Erinnerung an den Export: dezent, eine Zeile, antippbar (mindestens 44 Punkt hoch) */
+.sicherung { margin-top: 6px; }
+.sicherung-link { min-height: 44px; padding: 6px 4px; border: 0; background: none; color: #9aa7b4; font: inherit; font-size: 13px; text-decoration: underline; text-align: left; }

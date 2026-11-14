@@ -2,7 +2,7 @@
 /* Fuehrt die Testmodule aus und zeigt die Ergebnisse. Neue Testdatei: unten in DATEIEN eintragen. */
 import { alle } from './framework.js';
 
-const DATEIEN = ['zeit.test.js', 'db.test.js', 'segments.test.js', 'pipeline.test.js', 'zuordnen.test.js', 'zuordnung.test.js', 'categorize.test.js', 'stats.test.js', 'einstellungen.test.js', 'testdaten.test.js'];
+const DATEIEN = ['zeit.test.js', 'db.test.js', 'segments.test.js', 'pipeline.test.js', 'zuordnen.test.js', 'zuordnung.test.js', 'categorize.test.js', 'stats.test.js', 'einstellungen.test.js', 'testdaten.test.js', 'sicherung.test.js', 'offline.test.js'];
 
 const out = document.getElementById('out'), summary = document.getElementById('summary');
 let fehler = 0, gut = 0;

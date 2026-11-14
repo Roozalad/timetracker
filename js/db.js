@@ -1,7 +1,7 @@
 'use strict';
 /* IndexedDB: Toepfe, Eintraege, Segmente, Audio (Abschnitt 6).
    Keine Logik ausser Speichern und Lesen. Segment-Pruefung (Ueberlappung) gehoert in segments.js. */
-import { CONFIG } from './config.js?v=0.3.0';
+import { CONFIG } from './config.js?v=0.4.0';
 
 export const ABLAGEN = { toepfe: 'toepfe', eintraege: 'eintraege', segmente: 'segmente', audio: 'audio' };
 

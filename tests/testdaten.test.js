@@ -1,7 +1,7 @@
 'use strict';
 /* Tests fuer den Testdaten-Erzeuger (Paket F). Laeuft ueber tests/framework.js; nicht in main.js eingetragen. */
 import { test, gruppe, ok, eq, app } from './framework.js';
-import { erzeugeTestdaten, zufallsgenerator } from './testdaten.js?v=0.3.0';
+import { erzeugeTestdaten, zufallsgenerator } from './testdaten.js?v=0.4.0';
 
 const z = await app('zeit');
 const db = await app('db');
