@@ -6,8 +6,8 @@
        segment null (neuer Block): Topf waehlen, Zeiten einstellen, "Speichern".
        aenderung = { topfId, unterId, start, ende }. onSpeichern/onLoeschen duerfen werfen: die Meldung erscheint im Blatt.
      frage({ titel, text, ja, nein }) -> Promise<boolean> */
-import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.2.0';
-import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.2.0';
+import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.3.0';
+import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.3.0';
 
 const SCHRITT = 5 * MIN_MS;
 
@@ -98,10 +98,12 @@ export function zeigeKorrektur({ toepfe, segment = null, vorgabe, onSpeichern, o
 
     unterZeile.textContent = '';
     const topf = aktive.find((t) => t.id === st.topfId);
-    unterZeile.hidden = !(topf && topf.unter && topf.unter.length);
+    // Archivierte Unterpunkte nur zeigen, wenn dieser Block sie schon traegt
+    const unter = topf && topf.unter ? topf.unter.filter((u) => !u.archiviert || u.id === st.unterId) : [];
+    unterZeile.hidden = !unter.length;
     if (!unterZeile.hidden) {
       unterZeile.append(el('div', 'chips-titel', 'Unterpunkt'));
-      for (const u of topf.unter) {
+      for (const u of unter) {
         const c = knopf(u.name, 'chip', () => { st.unterId = st.unterId === u.id ? null : u.id; zeichne(); });
         c.setAttribute('aria-pressed', String(st.unterId === u.id));
         if (st.unterId === u.id) c.classList.add('gewaehlt');

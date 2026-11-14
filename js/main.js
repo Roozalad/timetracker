@@ -1,13 +1,13 @@
 'use strict';
 /* Start, Navigation, Verdrahtung. */
-import { CONFIG } from './config.js?v=0.2.0';
-import { log } from './log.js?v=0.2.0';
-import * as db from './db.js?v=0.2.0';
-import * as pipeline from './pipeline.js?v=0.2.0';
-import { zuordnen } from './zuordnen.js?v=0.2.0';
-import { initRecord } from './ui-record.js?v=0.2.0';
-import { initStats } from './ui-stats.js?v=0.2.0';
-import { initSettings } from './ui-settings.js?v=0.2.0';
+import { CONFIG } from './config.js?v=0.3.0';
+import { log } from './log.js?v=0.3.0';
+import * as db from './db.js?v=0.3.0';
+import * as pipeline from './pipeline.js?v=0.3.0';
+import { zuordnen } from './zuordnen.js?v=0.3.0';
+import { initRecord } from './ui-record.js?v=0.3.0';
+import { initStats } from './ui-stats.js?v=0.3.0';
+import { initSettings } from './ui-settings.js?v=0.3.0';
 
 const $ = (id) => document.getElementById(id);
 

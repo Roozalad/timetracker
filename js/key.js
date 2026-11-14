@@ -1,7 +1,7 @@
 'use strict';
 /* API-Key: liegt nur im localStorage dieses Browsers (Datenschutz-Regel 3).
    Nie in Code, Export oder Protokoll. */
-import { CONFIG } from './config.js?v=0.2.0';
+import { CONFIG } from './config.js?v=0.3.0';
 
 // Der Speichername steht auf globalThis, damit alle Instanzen dieses Moduls dasselbe meinen, auch wenn ein Import
 // mit abweichendem ?v= es ein zweites Mal laedt (sonst saehe z. B. categorize.js einen anderen Test-Speicher).

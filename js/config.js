@@ -5,7 +5,7 @@
    (Suchen und Ersetzen ueber app/). Ein einheitlicher Zusatz ist wichtig: sonst
    entstehen zwei Instanzen desselben Moduls. */
 export const CONFIG = {
-  version: '0.2.0',
+  version: '0.3.0',
 
   // --- Speicher
   dbName: 'zeiterfassung',

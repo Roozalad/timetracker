@@ -1,7 +1,7 @@
 'use strict';
 /* IndexedDB: Toepfe, Eintraege, Segmente, Audio (Abschnitt 6).
    Keine Logik ausser Speichern und Lesen. Segment-Pruefung (Ueberlappung) gehoert in segments.js. */
-import { CONFIG } from './config.js?v=0.2.0';
+import { CONFIG } from './config.js?v=0.3.0';
 
 export const ABLAGEN = { toepfe: 'toepfe', eintraege: 'eintraege', segmente: 'segmente', audio: 'audio' };
 
@@ -220,4 +220,154 @@ export async function segmenteAendern(berechne, eintrag = null) {
     };
   });
   return { gefunden, eintrag: neuerEintrag };
+}
+
+// ---------------------------------------------------------------- Paket E: Bestand, Kennungen, Toepfe
+const KENNUNG_SPEICHER = 'zeiterfassung.kennungen';   // hoechste vergebene Nummern je Art (t, u), wird nie zurueckgesetzt
+let kennungSpeicher = KENNUNG_SPEICHER;
+/** Nur fuer Tests: anderer Speichername fuer die Kennungen. */
+export function _kennungSpeicherName(n) { kennungSpeicher = n; }
+function zaehlerLesen() {
+  try { const o = JSON.parse(localStorage.getItem(kennungSpeicher) || '{}'); return o && typeof o === 'object' ? o : {}; }
+  catch (_) { return {}; }
+}
+function zaehlerSchreiben(o) { try { localStorage.setItem(kennungSpeicher, JSON.stringify(o)); } catch (_) {} }
+function zaehlerHoch(art, n) { const o = zaehlerLesen(); o[art] = Math.max(+o[art] || 0, n); zaehlerSchreiben(o); }
+
+/** Transaktion mit eigenem Abbruch; anders als transaktion() bleibt der Grund erhalten. arbeit(stores, ctx) ruft bei
+    einer Verletzung ctx.abbruch(fehler): dann wird alles zurueckgerollt und fehler geworfen. Ergebnis: ctx.ergebnis.
+    Wirft arbeit selbst, gilt dasselbe. */
+async function tx(ablagen, modus, arbeit) {
+  const db = await oeffneDb();
+  return new Promise((resolve, reject) => {
+    const ctx = { fehler: null, ergebnis: undefined, abbruch: null };
+    let t;
+    try { t = db.transaction(ablagen, modus); } catch (e) { reject(e); return; }
+    const stores = {};
+    for (const a of ablagen) stores[a] = t.objectStore(a);
+    ctx.abbruch = (e) => { if (!ctx.fehler) ctx.fehler = e; try { t.abort(); } catch (_) {} };
+    t.oncomplete = () => (ctx.fehler ? reject(ctx.fehler) : resolve(ctx.ergebnis));
+    t.onerror = () => reject(ctx.fehler || t.error);
+    t.onabort = () => reject(ctx.fehler || t.error || new Error('Transaktion abgebrochen'));
+    try { arbeit(stores, ctx); } catch (e) { ctx.abbruch(e); }
+  });
+}
+
+const nummerVon = (id, art) => {
+  const m = new RegExp(`^${art}(\\d+)$`).exec(typeof id === 'string' ? id : '');
+  return m ? +m[1] : 0;
+};
+/** Hoechste Nummer je Art (t, u) in einem Bestand, auch in Archiv, Segmenten und Ankuendigungen. */
+function hoechsteNummern(b) {
+  const h = { t: 0, u: 0 };
+  const sehe = (id, art) => { h[art] = Math.max(h[art], nummerVon(id, art)); };
+  for (const t of b.toepfe || []) { sehe(t.id, 't'); for (const u of t.unter || []) sehe(u.id, 'u'); }
+  for (const e of b.eintraege || []) if (e.angekuendigt) { sehe(e.angekuendigt.topfId, 't'); sehe(e.angekuendigt.unterId, 'u'); }
+  for (const s of b.segmente || []) { sehe(s.topfId, 't'); sehe(s.unterId, 'u'); }
+  return h;
+}
+
+/** Kompletter Bestand ohne Audio, in einer Lese-Transaktion. Toepfe nach reihenfolge, Rest nach id. */
+export async function bestandLesen() {
+  return tx([ABLAGEN.toepfe, ABLAGEN.eintraege, ABLAGEN.segmente], 'readonly', (s, ctx) => {
+    const rt = s.toepfe.getAll(), re = s.eintraege.getAll(), rs = s.segmente.getAll();
+    rs.onsuccess = () => {
+      ctx.ergebnis = {
+        toepfe: rt.result.sort((a, b) => a.reihenfolge - b.reihenfolge),
+        eintraege: re.result.sort((a, b) => a.id - b.id),
+        segmente: rs.result.sort((a, b) => a.id - b.id),
+      };
+    };
+  });
+}
+
+/** Ersetzt den gesamten Bestand (Toepfe, Eintraege, Segmente, Audio) in EINER Transaktion. Schlaegt etwas fehl,
+    bleibt der alte Bestand unveraendert. Eintraege kommen ohne Audio an (audioId null). Die Kennungszaehler
+    steigen mindestens auf die hoechsten Nummern des neuen Bestands. */
+export async function bestandErsetzen(b) {
+  await tx([ABLAGEN.toepfe, ABLAGEN.eintraege, ABLAGEN.segmente, ABLAGEN.audio], 'readwrite', (s) => {
+    s.toepfe.clear(); s.eintraege.clear(); s.segmente.clear(); s.audio.clear();
+    for (const t of b.toepfe) s.toepfe.put(t);
+    for (const e of b.eintraege) s.eintraege.put({ ...e, audioId: null });
+    for (const x of b.segmente) s.segmente.put(x);
+  });
+  const h = hoechsteNummern(b);
+  zaehlerHoch('t', h.t); zaehlerHoch('u', h.u);
+}
+
+/** Startbestand der Toepfe, keine Eintraege, keine Segmente, kein Audio. Key und Kennungszaehler bleiben. */
+export function alleZuruecksetzen() {
+  return bestandErsetzen({ toepfe: startbestandToepfe(), eintraege: [], segmente: [] });
+}
+
+/** Naechste freie Kennung der Art 't' (Topf) oder 'u' (Unterpunkt). Nie vergeben, auch nicht nach Loeschen oder
+    Archivieren: der Zaehler in localStorage merkt sich die hoechste Nummer. */
+export async function neueKennung(art) {
+  const h = hoechsteNummern(await bestandLesen());
+  const z = zaehlerLesen();
+  const n = Math.max(h[art], +z[art] || 0) + 1;
+  z[art] = n; zaehlerSchreiben(z);
+  return art + n;
+}
+
+/** Legt einen neuen Topf an. Scheitert, wenn die Kennung schon existiert. */
+export async function topfAnlegen(topf) {
+  await tx([ABLAGEN.toepfe], 'readwrite', (s, ctx) => {
+    const r = s.toepfe.get(topf.id);
+    r.onsuccess = () => {
+      if (r.result) ctx.abbruch(new Error(`Kennung ${topf.id} gibt es schon`));
+      else s.toepfe.add(topf);
+    };
+  });
+}
+
+/** Speichert einen Topf mit Unterpunkten. Ein Unterpunkt, auf den Segmente verweisen, darf nicht aus der Liste
+    fallen (nur archiviert werden). */
+export async function topfSpeichern(topf) {
+  await tx([ABLAGEN.toepfe, ABLAGEN.segmente], 'readwrite', (s, ctx) => {
+    const rt = s.toepfe.get(topf.id), rs = s.segmente.getAll();
+    rs.onsuccess = () => {
+      const alt = rt.result;
+      if (!alt) { ctx.abbruch(new Error(`Topf ${topf.id} gibt es nicht mehr`)); return; }
+      const bleiben = new Set((topf.unter || []).map((u) => u.id));
+      for (const u of alt.unter || []) {
+        if (bleiben.has(u.id)) continue;
+        const n = rs.result.filter((x) => x.topfId === topf.id && x.unterId === u.id).length;
+        if (n) { ctx.abbruch(new Error(`Unterpunkt „${u.name}“ hat ${n} Segmente und lässt sich nur archivieren`)); return; }
+      }
+      s.toepfe.put(topf);
+    };
+  });
+}
+
+/** Schreibt mehrere Töpfe in einer Transaktion (Reihenfolge). */
+export async function toepfeSpeichern(liste) {
+  await tx([ABLAGEN.toepfe], 'readwrite', (s) => { for (const t of liste) s.toepfe.put(t); });
+}
+
+/** Loescht einen Topf. Hat er Segmente, bleibt er und scheitert mit Meldung (nur archivieren). */
+export async function topfLoeschen(id) {
+  await tx([ABLAGEN.toepfe, ABLAGEN.segmente], 'readwrite', (s, ctx) => {
+    const rs = s.segmente.getAll();
+    rs.onsuccess = () => {
+      const n = rs.result.filter((x) => x.topfId === id).length;
+      if (n) ctx.abbruch(new Error(`Topf hat ${n} Segmente und lässt sich nur archivieren`));
+      else s.toepfe.delete(id);
+    };
+  });
+}
+
+/** Segmente je Topf und je Unterpunkt: { topf: { t1: 3 }, unter: { 't1/u2': 1 } }. */
+export async function zaehleSegmente() {
+  return tx([ABLAGEN.segmente], 'readonly', (s, ctx) => {
+    const rs = s.segmente.getAll();
+    rs.onsuccess = () => {
+      const topf = {}, unter = {};
+      for (const x of rs.result) {
+        topf[x.topfId] = (topf[x.topfId] || 0) + 1;
+        if (x.unterId != null) { const k = `${x.topfId}/${x.unterId}`; unter[k] = (unter[k] || 0) + 1; }
+      }
+      ctx.ergebnis = { topf, unter };
+    };
+  });
 }

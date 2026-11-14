@@ -8,12 +8,12 @@
    Wiederholung: beim Oeffnen, bei Rueckkehr in den Vordergrund, bei wiederkehrendem Netz, auf Knopfdruck.
    Key ungueltig/Guthaben leer oder kein Key: keine automatische Wiederholung, bis der Key geaendert
    wird oder die Nutzerin "Jetzt senden" drueckt. */
-import { log } from './log.js?v=0.2.0';
-import { getKey, maskiere } from './key.js?v=0.2.0';
-import { fensterStartFuer } from './zeit.js?v=0.2.0';
-import { transcribe, TranscribeError } from './transcribe.js?v=0.2.0';
-import * as db from './db.js?v=0.2.0';
-import * as aktionen from './aktionen.js?v=0.2.0';
+import { log } from './log.js?v=0.3.0';
+import { getKey, maskiere } from './key.js?v=0.3.0';
+import { fensterStartFuer } from './zeit.js?v=0.3.0';
+import { transcribe, TranscribeError } from './transcribe.js?v=0.3.0';
+import * as db from './db.js?v=0.3.0';
+import * as aktionen from './aktionen.js?v=0.3.0';
 
 const abonnenten = new Set();
 let laeuft = false;
