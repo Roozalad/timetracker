@@ -8,12 +8,12 @@
    Wiederholung: beim Oeffnen, bei Rueckkehr in den Vordergrund, bei wiederkehrendem Netz, auf Knopfdruck.
    Key ungueltig/Guthaben leer oder kein Key: keine automatische Wiederholung, bis der Key geaendert
    wird oder die Nutzerin "Jetzt senden" drueckt. */
-import { log } from './log.js?v=0.4.0';
-import { getKey, maskiere } from './key.js?v=0.4.0';
-import { fensterStartFuer } from './zeit.js?v=0.4.0';
-import { transcribe, TranscribeError } from './transcribe.js?v=0.4.0';
-import * as db from './db.js?v=0.4.0';
-import * as aktionen from './aktionen.js?v=0.4.0';
+import { log } from './log.js?v=0.4.1';
+import { getKey, maskiere } from './key.js?v=0.4.1';
+import { fensterStartFuer } from './zeit.js?v=0.4.1';
+import { transcribe, TranscribeError } from './transcribe.js?v=0.4.1';
+import * as db from './db.js?v=0.4.1';
+import * as aktionen from './aktionen.js?v=0.4.1';
 
 const abonnenten = new Set();
 let laeuft = false;
@@ -89,14 +89,17 @@ async function fehlerMerken(id, meldung) {
 async function bearbeite(e, alle) {
   if (e.status === 'wartet_transkription') {
     const audio = e.audioId != null ? await db.getAudio(e.audioId) : null;
+    // e stammt vom Beginn des Laufs: geschrieben wird nur, wenn der Eintrag noch so wartet (zweiter Tab, Import)
+    const nochSo = (x) => x.status === 'wartet_transkription' && x.audioId === e.audioId;
     if (!audio) {
-      const neu = await db.updateEintrag(e.id, { status: 'fehler', fehler: 'Audio nicht mehr vorhanden', audioId: null });
+      const neu = await db.updateEintrag(e.id, { status: 'fehler', fehler: 'Audio nicht mehr vorhanden', audioId: null }, nochSo);
+      if (!neu) { log(`Eintrag ${e.id}: inzwischen geändert oder gelöscht`); return; }
       log(`Eintrag ${e.id}: Audio fehlt`); melde({ typ: 'eintrag', eintrag: neu });
       return;
     }
     const text = await transcribe(new Blob([audio.buf], { type: audio.type }));
-    const gespeichert = await db.transkriptSpeichern(e.id, text);
-    if (!gespeichert) { log(`Eintrag ${e.id}: inzwischen gelöscht`); return; }
+    const gespeichert = await db.transkriptSpeichern(e.id, text, e.audioId);
+    if (!gespeichert) { log(`Eintrag ${e.id}: inzwischen geändert oder gelöscht, Transkript verworfen`); return; }
     e = gespeichert;
     log(`Eintrag ${e.id}: Transkript gespeichert (${text.length} Zeichen), Audio gelöscht, Status ${e.status}`);
     melde({ typ: 'eintrag', eintrag: e });
@@ -109,8 +112,10 @@ async function bearbeite(e, alle) {
     const teil = (await zuordnenFn(e, { vorgaenger })) || {};
     // 'segmente' (neue ki-Segmente) gehoert nicht in den Eintrag; Eintrag und Segmente gehen atomar in die Datenbank
     const { segmente, ...felder } = teil;
-    const r = await aktionen.zuordnungSpeichern(e.id, { status: 'fertig', fehler: null, ...felder }, segmente);
-    if (!r.gefunden) { log(`Eintrag ${e.id}: inzwischen gelöscht, Ergebnis verworfen`); return; }
+    // nur speichern, wenn der Eintrag noch auf genau diese Zuordnung wartet (nicht geloescht, ersetzt oder anderswo fertig)
+    const nochSo = (x) => x.status === 'wartet_zuordnung' && x.zeit === e.zeit && x.transkript === e.transkript;
+    const r = await aktionen.zuordnungSpeichern(e.id, { status: 'fertig', fehler: null, ...felder }, segmente, nochSo);
+    if (!r.gefunden) { log(`Eintrag ${e.id}: inzwischen geändert oder gelöscht, Ergebnis verworfen`); return; }
     log(`Eintrag ${e.id}: Zuordnung abgeschlossen, Status ${r.eintrag.status}${segmente ? `, ${segmente.length} Segmente` : ''}`);
     melde({ typ: 'eintrag', eintrag: r.eintrag });
   }

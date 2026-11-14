@@ -2,12 +2,12 @@
 /* Ansicht Auswertung (8.2): Umschalter Tag/Woche/Monat, Pfeile, Tagesspalte oder Wochenspalten, Torte, Tabelle.
    Rechnen tut stats.js; hier wird nur gelesen (db.js) und gezeichnet. Ein Tipp auf einen Block im Tag oeffnet das
    Korrekturblatt (ui-korrektur.js), danach wird neu gezeichnet. */
-import * as db from './db.js?v=0.4.0';
-import * as aktionen from './aktionen.js?v=0.4.0';
-import { uhrzeit } from './zeit.js?v=0.4.0';
-import { UNKLAR_FARBE } from './segments.js?v=0.4.0';
-import * as stats from './stats.js?v=0.4.0';
-import { zeigeKorrektur } from './ui-korrektur.js?v=0.4.0';
+import * as db from './db.js?v=0.4.1';
+import * as aktionen from './aktionen.js?v=0.4.1';
+import { uhrzeit } from './zeit.js?v=0.4.1';
+import { UNKLAR_FARBE } from './segments.js?v=0.4.1';
+import * as stats from './stats.js?v=0.4.1';
+import { zeigeKorrektur } from './ui-korrektur.js?v=0.4.1';
 
 const ART_NAME = { tag: 'Tag', woche: 'Woche', monat: 'Monat' };
 const VON_H = 7, BIS_H = 23, STUNDEN = BIS_H - VON_H;

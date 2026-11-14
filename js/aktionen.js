@@ -2,20 +2,21 @@
 /* Aenderungen an Segmenten und Eintraegen, jeweils in EINER Datenbank-Transaktion (db.segmenteAendern),
    gerechnet mit der reinen Logik aus segments.js. Genutzt von Pipeline (Zuordnung), Karte und Korrekturblatt.
    Jede Korrektur der Nutzerin setzt quelle 'manuell' und verdraengt alles (7.4). */
-import * as db from './db.js?v=0.4.0';
-import { einfuegen, MIN_MS } from './segments.js?v=0.4.0';
+import * as db from './db.js?v=0.4.1';
+import { einfuegen, MIN_MS } from './segments.js?v=0.4.1';
 
 /** Schritt 3 der Pipeline: Eintrag aktualisieren und, falls neue Segmente uebergeben werden (auch eine leere Liste),
     die ki-Segmente dieses Eintrags durch sie ersetzen. Manuelle Segmente bleiben, die neuen werden um sie herum
-    gekuerzt. neue === undefined/null: Segmente unberuehrt (z. B. Status 'fehler'). Liefert { gefunden, eintrag }. */
-export function zuordnungSpeichern(eintragId, patch, neue) {
+    gekuerzt. neue === undefined/null: Segmente unberuehrt (z. B. Status 'fehler'). wenn(eintrag) optional: nur speichern,
+    wenn der aktuelle Stand sie erfuellt, sonst gefunden: false. Liefert { gefunden, eintrag }. */
+export function zuordnungSpeichern(eintragId, patch, neue, wenn = null) {
   const berechne = Array.isArray(neue) ? (bestand) => {
     const alt = bestand.filter((s) => s.eintragId === eintragId && s.quelle === 'ki');
     const rest = bestand.filter((s) => !(s.eintragId === eintragId && s.quelle === 'ki'));
     const r = einfuegen(rest, neue);
     return { loeschen: [...alt.map((s) => s.id), ...r.loeschen], schreiben: r.schreiben };
   } : null;
-  return db.segmenteAendern(berechne, { id: eintragId, patch });
+  return db.segmenteAendern(berechne, { id: eintragId, patch, wenn });
 }
 
 function pruefe(b) {
@@ -24,7 +25,8 @@ function pruefe(b) {
 }
 
 /** Korrektur eines Blocks: aenderung = { topfId, unterId, start, ende, text? }. Der Block behaelt seine id und seine
-    Herkunft (eintragId), wird 'manuell' und verdraengt Nachbarn im neuen Zeitraum. */
+    Herkunft (eintragId), wird 'manuell' und verdraengt Nachbarn im neuen Zeitraum. Gibt es den Block nicht mehr (z. B.
+    inzwischen neu zugeordnet), wirft sie: das Korrekturblatt zeigt die Meldung, statt die Korrektur still zu verlieren. */
 export async function segmentKorrigieren(id, aenderung) {
   pruefe(aenderung);
   let gefunden = false;
@@ -36,7 +38,8 @@ export async function segmentKorrigieren(id, aenderung) {
     const neu = { ...alt, ...aenderung, id, quelle: 'manuell', zeitQuelle: zeitGeaendert ? 'genannt' : alt.zeitQuelle };
     return einfuegen(bestand.filter((s) => s.id !== id), [neu], { manuell: true });
   });
-  return gefunden;
+  if (!gefunden) throw new Error('Der Block wurde inzwischen geändert oder gelöscht. Bitte das Blatt schließen und neu öffnen.');
+  return true;
 }
 
 /** Block von Hand: b = { topfId, unterId, start, ende, text?, eintragId? }. */

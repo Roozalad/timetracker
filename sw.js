@@ -11,7 +11,7 @@
    - Alle anderen Dateien: nur aus dem Zwischenspeicher, mit exakt der URL samt ?v=. Fehlt etwas, geht die Anfrage ans Netz
      (ohne zu speichern). Eine neue Seite findet ihre neuen ?v=-URLs nie beim alten Stand.
    - Fremde Adressen (api.openai.com) und alles ausser GET beruehrt dieser Worker nicht. sw.js selbst nie aus dem Speicher. */
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 const PRAEFIX = 'zeiterfassung-';
 const CACHE = PRAEFIX + VERSION;
 const NETZ_ZEIT_MS = 3000;

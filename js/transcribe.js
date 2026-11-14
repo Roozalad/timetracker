@@ -2,8 +2,8 @@
 /* Transkription: Audio rein, Text raus. Genau eine oeffentliche Funktion, austauschbar:
    transcribe(blob) -> Promise<string>. Wirft TranscribeError.
    Aus dem Spike: Modell gpt-transcribe, Sprache ueber languages[]=de, direkter Aufruf aus dem Browser. */
-import { CONFIG } from './config.js?v=0.4.0';
-import { getKey, maskiere } from './key.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.4.1';
+import { getKey, maskiere } from './key.js?v=0.4.1';
 
 /** art: 'kein_key' | 'auth' (Key ungueltig / Guthaben leer: nicht automatisch wiederholen)
         | 'netz' | 'server' | 'ungueltig' (Anfrage selbst abgelehnt, z. B. Datei unbrauchbar). */
@@ -32,16 +32,20 @@ export async function transcribe(blob) {
   for (const l of CONFIG.sprachen) form.append('languages[]', l);
   form.append('file', blob, `aufnahme.${dateiEndung(blob.type)}`);
 
+  // Die Zeitgrenze gilt bis der Antwortkoerper gelesen ist: haengt er, bliebe sonst die ganze Schlange stehen
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CONFIG.requestTimeoutMs);
-  let res;
-  try {
-    res = await fetch(CONFIG.transkribierEndpoint, {
-      method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form, signal: ctrl.signal,
-    });
-  } catch (e) {
+  try { return await senden(key, form, ctrl.signal); }
+  catch (e) {
+    if (e instanceof TranscribeError) throw e;
     throw new TranscribeError(e && e.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler', { art: 'netz' });
   } finally { clearTimeout(timer); }
+}
+
+async function senden(key, form, signal) {
+  const res = await fetch(CONFIG.transkribierEndpoint, {
+    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form, signal,
+  });
 
   if (!res.ok) {
     let msg = `HTTP ${res.status}`, code = '';
@@ -58,7 +62,10 @@ export async function transcribe(blob) {
     throw new TranscribeError(msg, { art, status: res.status });
   }
   let data;
-  try { data = await res.json(); } catch (_) { throw new TranscribeError('Antwort nicht lesbar', { art: 'server' }); }
+  try { data = await res.json(); } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    throw new TranscribeError('Antwort nicht lesbar', { art: 'server' });
+  }
   if (!data || typeof data.text !== 'string') throw new TranscribeError('Antwort ohne Text', { art: 'ungueltig' });
   return data.text.trim();
 }

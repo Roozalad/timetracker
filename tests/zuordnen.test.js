@@ -275,7 +275,7 @@ test('Korrektur: quelle manuell, id und Eintrag bleiben, Nachbarn werden verdrä
   eq(kurz(s), ['10:00-11:30 t1*', '11:30-12:00 t3']);
   eq([s[0].id, s[0].eintragId, s[0].unterId, s[0].text, s[0].zeitQuelle], [a.id, e.id, 'u2', 'A', 'genannt']);
   await wirft(() => akt.segmentKorrigieren(a.id, { topfId: 't1', unterId: null, start: T(10), ende: T(10, 0) }));
-  eq(await akt.segmentKorrigieren(424242, { topfId: 't1', unterId: null, start: T(10), ende: T(11) }), false);
+  await wirft(() => akt.segmentKorrigieren(424242, { topfId: 't1', unterId: null, start: T(10), ende: T(11) })); // Paket H: nicht still false
 });
 test('Block von Hand verdrängt auch manuelle; Block löschen; Eintrag löschen nimmt seine Blöcke mit, Handblöcke bleiben', async () => {
   await umgebung();

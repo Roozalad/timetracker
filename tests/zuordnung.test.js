@@ -2,9 +2,9 @@
 /* Selbsttest der Auswertung: Jede Beispielantwort besteht ihren Fall; gezielt verfaelschte Antworten fallen
    durch; Verschiebungen innerhalb der Toleranz und eine andere Aufteilung geschaetzter Zeiten bestehen. */
 import { test, gruppe, ok, eq } from './framework.js';
-import { FAELLE } from './zuordnung-faelle.js?v=0.4.0';
-import { pruefeFall, relativ, hhmm, zeitText } from './zuordnung-auswertung.js?v=0.4.0';
-import { falscheAntwort } from './zuordnung-attrappe.js?v=0.4.0';
+import { FAELLE } from './zuordnung-faelle.js?v=0.4.1';
+import { pruefeFall, relativ, hhmm, zeitText } from './zuordnung-auswertung.js?v=0.4.1';
+import { falscheAntwort } from './zuordnung-attrappe.js?v=0.4.1';
 
 const kopie = (o) => JSON.parse(JSON.stringify(o));
 const besteht = (f, a, was) => { const r = pruefeFall(f, a); ok(r.ok, `${f.id} ${was}: sollte bestehen, Abweichungen: ${r.abweichungen.join('; ')}`); };

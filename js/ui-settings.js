@@ -2,13 +2,13 @@
 /* Ansicht Einstellungen. Paket A: API-Key (eintragen, ersetzen, entfernen) und Info mit Version und aufklappbarem
    Protokoll. Paket E: Toepfe (Liste, Anlegen, Bearbeiten, Reihenfolge, Archiv, Unterpunkte) und Daten (Export,
    Import, Alles loeschen). baueExport und pruefeImport sind ohne Seite pruefbar (tests/einstellungen.test.js). */
-import { CONFIG } from './config.js?v=0.4.0';
-import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.0';
-import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.0';
-import { frage } from './ui-korrektur.js?v=0.4.0';
-import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.0';
-import * as db from './db.js?v=0.4.0';
-import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.4.1';
+import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.1';
+import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.1';
+import { frage } from './ui-korrektur.js?v=0.4.1';
+import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.1';
+import * as db from './db.js?v=0.4.1';
+import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.1';
 
 export const EXPORT_APP = 'zeiterfassung';
 export const EXPORT_FORMAT = 1;

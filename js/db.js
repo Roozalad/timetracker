@@ -1,7 +1,7 @@
 'use strict';
 /* IndexedDB: Toepfe, Eintraege, Segmente, Audio (Abschnitt 6).
    Keine Logik ausser Speichern und Lesen. Segment-Pruefung (Ueberlappung) gehoert in segments.js. */
-import { CONFIG } from './config.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.4.1';
 
 export const ABLAGEN = { toepfe: 'toepfe', eintraege: 'eintraege', segmente: 'segmente', audio: 'audio' };
 
@@ -127,12 +127,13 @@ export async function listEintraege({ status } = {}) {
   const l = status ? alle.filter((e) => [].concat(status).includes(e.status)) : alle;
   return l.sort((a, b) => a.zeit - b.zeit || a.id - b.id);
 }
-/** Mischt patch in den Eintrag (lesen und schreiben in einer Transaktion). Liefert den neuen Stand oder null. */
-export async function updateEintrag(id, patch) {
+/** Mischt patch in den Eintrag (lesen und schreiben in einer Transaktion). Liefert den neuen Stand oder null.
+    wenn(eintrag) optional: nur schreiben, wenn der aktuelle Stand die Bedingung erfuellt (sonst null). */
+export async function updateEintrag(id, patch, wenn = null) {
   let neu = null;
   await transaktion([ABLAGEN.eintraege], 'readwrite', (s) => {
     const r = s.eintraege.get(id);
-    r.onsuccess = () => { if (r.result) { neu = { ...r.result, ...patch }; s.eintraege.put(neu); } };
+    r.onsuccess = () => { if (r.result && (!wenn || wenn(r.result))) { neu = { ...r.result, ...patch }; s.eintraege.put(neu); } };
   });
   return neu;
 }
@@ -160,14 +161,16 @@ export async function eintragMitAudioAnlegen({ zeit, fensterStart = null }, audi
   return eintrag;
 }
 /** Schritt 2 (7.1): Transkript speichern, Audio loeschen, Status setzen - atomar.
-    Leeres Transkript: Status 'fertig' (Abschnitt 9), sonst 'wartet_zuordnung'. */
-export async function transkriptSpeichern(id, text) {
+    Leeres Transkript: Status 'fertig' (Abschnitt 9), sonst 'wartet_zuordnung'.
+    Nur fuer einen Eintrag, der noch auf die Transkription wartet (und, wenn audioId angegeben ist, noch dieses Audio
+    traegt); sonst null. So ueberschreibt ein veralteter Lauf (zweiter Tab, Import mitten im Lauf) nichts. */
+export async function transkriptSpeichern(id, text, audioId) {
   let neu = null;
   await transaktion([ABLAGEN.eintraege, ABLAGEN.audio], 'readwrite', (s) => {
     const r = s.eintraege.get(id);
     r.onsuccess = () => {
       const e = r.result;
-      if (!e) return;
+      if (!e || e.status !== 'wartet_transkription' || (audioId !== undefined && e.audioId !== audioId)) return;
       if (e.audioId != null) s.audio.delete(e.audioId);
       neu = { ...e, transkript: text, audioId: null, fehler: null, status: text ? 'wartet_zuordnung' : 'fertig' };
       s.eintraege.put(neu);
@@ -189,7 +192,8 @@ export const deleteSegment = (id) => schreibe(ABLAGEN.segmente, (s) => { s.delet
 /** Segmente und optional einen Eintrag in EINER Transaktion aendern: Sperren oder Abbruch mitten drin speichern nichts halb.
     berechne(bestand) -> { loeschen: [ids], schreiben: [Segmente] } | null  (reine Funktion aus segments.js; sie sieht den
       Bestand innerhalb der Transaktion, so ueberschreiben sich gleichzeitige Aenderungen nicht). Segmente ohne id werden angelegt.
-    eintrag: null | { id, patch } | { id, loeschen: true } (loescht auch das Audio). Fehlt der Eintrag, wird nichts geschrieben.
+    eintrag: null | { id, patch, wenn? } | { id, loeschen: true } (loescht auch das Audio). Fehlt der Eintrag oder erfuellt er
+      wenn(eintrag) nicht, wird nichts geschrieben (gefunden: false).
     Liefert { gefunden, eintrag: neuer Stand | null }. */
 export async function segmenteAendern(berechne, eintrag = null) {
   let neuerEintrag = null, gefunden = true;
@@ -213,7 +217,7 @@ export async function segmenteAendern(berechne, eintrag = null) {
     const re = s.eintraege.get(eintrag.id);
     re.onsuccess = () => {
       const e = re.result;
-      if (!e) { gefunden = false; return; }
+      if (!e || (eintrag.wenn && !eintrag.wenn(e))) { gefunden = false; return; }
       if (eintrag.loeschen) { if (e.audioId != null) s.audio.delete(e.audioId); s.eintraege.delete(e.id); }
       else { neuerEintrag = { ...e, ...eintrag.patch }; s.eintraege.put(neuerEintrag); }
       segmenteSchreiben();

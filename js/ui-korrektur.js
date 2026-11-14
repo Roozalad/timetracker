@@ -6,8 +6,8 @@
        segment null (neuer Block): Topf waehlen, Zeiten einstellen, "Speichern".
        aenderung = { topfId, unterId, start, ende }. onSpeichern/onLoeschen duerfen werfen: die Meldung erscheint im Blatt.
      frage({ titel, text, ja, nein }) -> Promise<boolean> */
-import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.4.0';
-import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.4.0';
+import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.4.1';
+import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.4.1';
 
 const SCHRITT = 5 * MIN_MS;
 

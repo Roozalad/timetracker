@@ -9,8 +9,8 @@
    Datenschutz (Abschnitt 3, Regel 5): Von jedem Topf gehen nur id, hinweise und unter (id, name) hinaus,
    archivierte Toepfe gar nicht, auch wenn der Aufrufer vollstaendige Topf-Objekte uebergibt.
    Die Anfrage setzt store:false, damit OpenAI die Antwort nicht zum spaeteren Abruf speichert. */
-import { CONFIG } from './config.js?v=0.4.0';
-import { getKey, maskiere } from './key.js?v=0.4.0';
+import { CONFIG } from './config.js?v=0.4.1';
+import { getKey, maskiere } from './key.js?v=0.4.1';
 
 /** Wird am Eintrag als promptVersion gespeichert. Bei jeder Aenderung an SYSTEMPROMPT oder Schema hochzaehlen. */
 export const PROMPT_VERSION = 'zuordnung-4';
@@ -253,21 +253,25 @@ export async function categorize(eingabe, opt = {}) {
     store: false,
   };
 
+  // Die Zeitgrenze gilt bis der Antwortkoerper gelesen ist: haengt er, bliebe sonst die ganze Schlange stehen
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CONFIG.zuordnenTimeoutMs);
   const t0 = Date.now();
-  let res;
-  try {
-    res = await fetch(CONFIG.zuordnenEndpoint, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-  } catch (e) {
+  try { return await senden(key, body, nachricht, meta, ctrl.signal, t0); }
+  catch (e) {
+    if (e instanceof CategorizeError) throw e;
     meta.dauerMs = Date.now() - t0;
     throw new CategorizeError(e && e.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler', { art: 'netz' });
   } finally { clearTimeout(timer); }
+}
+
+async function senden(key, body, nachricht, meta, signal, t0) {
+  const res = await fetch(CONFIG.zuordnenEndpoint, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
   meta.status = res.status;
 
   if (!res.ok) {
@@ -286,7 +290,10 @@ export async function categorize(eingabe, opt = {}) {
     throw new CategorizeError(msg, { art, status: res.status, grund: art === 'ungueltig' ? 'abgelehnt' : '' });
   }
   let data;
-  try { data = await res.json(); } catch (_) { meta.dauerMs = Date.now() - t0; throw new CategorizeError('Antwort nicht lesbar', { art: 'server', status: res.status }); }
+  try { data = await res.json(); } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    meta.dauerMs = Date.now() - t0; throw new CategorizeError('Antwort nicht lesbar', { art: 'server', status: res.status });
+  }
   meta.dauerMs = Date.now() - t0;
   const nutzung = data && data.usage ? data.usage : null;
   meta.nutzung = nutzung; meta.antwortId = data && data.id ? String(data.id) : null;

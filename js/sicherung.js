@@ -2,7 +2,7 @@
 /* Erinnerung an den Export (8.3), reine Logik ohne Seite, Speicher oder Uhr: alles kommt als Parameter.
    Nach mehr als 14 Tagen ohne Export erinnert die Ansicht Aufnahme. Gab es noch nie einen Export, zaehlt der
    aelteste Eintrag. */
-import { vorZeitText } from './zeit.js?v=0.4.0';
+import { vorZeitText } from './zeit.js?v=0.4.1';
 
 export const ERINNERUNG_TAGE = 14;
 const TAG_MS = 24 * 60 * 60 * 1000;

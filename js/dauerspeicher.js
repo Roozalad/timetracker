@@ -1,7 +1,7 @@
 'use strict';
 /* Dauerhafter Speicher (Abschnitt 10): beim Start navigator.storage.persist() anfordern und das Ergebnis merken.
    Unter iOS entscheidet das System; die App zeigt nur an, was zurueckkommt. */
-import { log } from './log.js?v=0.4.0';
+import { log } from './log.js?v=0.4.1';
 
 let stand = null; // true | false | null (unbekannt)
 const abonnenten = new Set();

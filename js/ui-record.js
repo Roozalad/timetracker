@@ -1,17 +1,17 @@
 'use strict';
 /* Ansicht Aufnahme (8.1): Kopfzeile, Button, Bestaetigung, wartende Eintraege, Ergebniskarten der heutigen Eintraege
    mit Korrekturblatt, Block von Hand, "Neu zuordnen" und "Eintrag loeschen". */
-import { createRecorder } from './recorder.js?v=0.4.0';
-import * as pipeline from './pipeline.js?v=0.4.0';
-import * as db from './db.js?v=0.4.0';
-import * as aktionen from './aktionen.js?v=0.4.0';
-import { log } from './log.js?v=0.4.0';
-import { maskiere } from './key.js?v=0.4.0';
-import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.4.0';
-import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.4.0';
-import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.4.0';
-import { LETZTER_EXPORT } from './ui-settings.js?v=0.4.0';
-import { sicherungText, exportZeitAusText } from './sicherung.js?v=0.4.0';
+import { createRecorder } from './recorder.js?v=0.4.1';
+import * as pipeline from './pipeline.js?v=0.4.1';
+import * as db from './db.js?v=0.4.1';
+import * as aktionen from './aktionen.js?v=0.4.1';
+import { log } from './log.js?v=0.4.1';
+import { maskiere } from './key.js?v=0.4.1';
+import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.4.1';
+import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.4.1';
+import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.4.1';
+import { LETZTER_EXPORT } from './ui-settings.js?v=0.4.1';
+import { sicherungText, exportZeitAusText } from './sicherung.js?v=0.4.1';
 
 const STATUS_TEXT = {
   wartet_transkription: 'Wartet auf Transkription',
