@@ -8,12 +8,12 @@
    Wiederholung: beim Oeffnen, bei Rueckkehr in den Vordergrund, bei wiederkehrendem Netz, auf Knopfdruck.
    Key ungueltig/Guthaben leer oder kein Key: keine automatische Wiederholung, bis der Key geaendert
    wird oder die Nutzerin "Jetzt senden" drueckt. */
-import { log } from './log.js?v=0.4.1';
-import { getKey, maskiere } from './key.js?v=0.4.1';
-import { fensterStartFuer } from './zeit.js?v=0.4.1';
-import { transcribe, TranscribeError } from './transcribe.js?v=0.4.1';
-import * as db from './db.js?v=0.4.1';
-import * as aktionen from './aktionen.js?v=0.4.1';
+import { log } from './log.js?v=0.4.2';
+import { getKey, maskiere } from './key.js?v=0.4.2';
+import { fensterStartFuer } from './zeit.js?v=0.4.2';
+import { transcribe, TranscribeError } from './transcribe.js?v=0.4.2';
+import * as db from './db.js?v=0.4.2';
+import * as aktionen from './aktionen.js?v=0.4.2';
 
 const abonnenten = new Set();
 let laeuft = false;
@@ -81,8 +81,22 @@ function entsperre() {
   blockiert = null; melde({ typ: 'entsperrt' });
 }
 
-async function fehlerMerken(id, meldung) {
-  try { const e = await db.updateEintrag(id, { fehler: meldung }); if (e) melde({ typ: 'eintrag', eintrag: e }); } catch (_) {}
+/** Hoechstens so oft wird eine Aufnahme gesendet, die OpenAI als ungueltig ablehnt (HTTP 4xx, kein Text). Danach
+    'fehler', damit sie nicht bei jedem Lauf erneut Geld kostet. Das Audio bleibt erhalten. */
+export const MAX_ABGELEHNT = 3;
+
+async function fehlerMerken(id, meldung, art) {
+  try {
+    const e = await db.getEintrag(id);
+    if (!e) return;
+    const patch = { fehler: meldung };
+    if (art === 'ungueltig' && e.status === 'wartet_transkription') {
+      patch.abgelehnt = (e.abgelehnt || 0) + 1;
+      if (patch.abgelehnt >= MAX_ABGELEHNT) { patch.status = 'fehler'; log(`Eintrag ${id}: Transkription ${patch.abgelehnt}× abgelehnt, Status fehler`); }
+    }
+    const neu = await db.updateEintrag(id, patch, (x) => x.status === e.status);
+    if (neu) melde({ typ: 'eintrag', eintrag: neu });
+  } catch (_) {}
 }
 
 /** Bearbeitet einen Eintrag. Wirft nur bei voruebergehenden/blockierenden Fehlern (Lauf endet dann). */
@@ -158,7 +172,7 @@ export async function starte(grund, opt = {}) {
           const art = (err && err.art) || 'netz';
           const meldung = maskiere((err && err.message) || 'Unbekannter Fehler');
           log(`Eintrag ${e.id}: Fehler (${art}) ${meldung}`);
-          await fehlerMerken(e.id, meldung);
+          await fehlerMerken(e.id, meldung, art);
           if (art === 'ungueltig') { fehler = fehler || { art, meldung }; continue; } // dieser Eintrag ist das Problem, die naechsten duerfen
           fehler = { art, meldung };
           if (art === 'auth' || art === 'kein_key') blockiere(art === 'kein_key' ? 'kein_key' : 'auth', meldung);

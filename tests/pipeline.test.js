@@ -104,6 +104,23 @@ test('Serverfehler 503: Eintrag wartet, nicht gesperrt', async () => {
     ok(pipeline.zustand().blockiert === null);
   } finally { f.restore(); }
 });
+test('Transkription abgelehnt (400): nach MAX_ABGELEHNT Versuchen Status fehler, Audio bleibt, keine weiteren Aufrufe', async () => {
+  await umgebung();
+  const f = falschesFetch(() => json(400, { error: { message: 'Audio file might be corrupted' } }));
+  try {
+    await neueAufnahme({ blob: blob(), zeit: Date.now(), dauerMs: 1000, weg: 'normal' });
+    let e = (await db.listEintraege())[0];
+    eq(e.status, 'wartet_transkription', 'nach dem ersten Versuch wartet er noch'); eq(e.abgelehnt, 1);
+    for (let i = 1; i < pipeline.MAX_ABGELEHNT; i++) await lauf();
+    e = (await db.listEintraege())[0];
+    eq(e.status, 'fehler'); eq(e.abgelehnt, pipeline.MAX_ABGELEHNT); ok(e.fehler.includes('400'));
+    ok(e.audioId != null && (await db.getAudio(e.audioId)), 'Audio bleibt erhalten');
+    const vorher = f.calls.length;
+    await lauf();
+    eq(f.calls.length, vorher, 'kein weiterer Aufruf');
+    eq(vorher, pipeline.MAX_ABGELEHNT);
+  } finally { f.restore(); }
+});
 test('Neustart: wartender Eintrag wird beim nächsten Start gesendet', async () => {
   await umgebung();
   const f = falschesFetch(() => json(200, { text: 'nach Neustart' }));

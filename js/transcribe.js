@@ -2,8 +2,8 @@
 /* Transkription: Audio rein, Text raus. Genau eine oeffentliche Funktion, austauschbar:
    transcribe(blob) -> Promise<string>. Wirft TranscribeError.
    Aus dem Spike: Modell gpt-transcribe, Sprache ueber languages[]=de, direkter Aufruf aus dem Browser. */
-import { CONFIG } from './config.js?v=0.4.1';
-import { getKey, maskiere } from './key.js?v=0.4.1';
+import { CONFIG } from './config.js?v=0.4.2';
+import { getKey, maskiere } from './key.js?v=0.4.2';
 
 /** art: 'kein_key' | 'auth' (Key ungueltig / Guthaben leer: nicht automatisch wiederholen)
         | 'netz' | 'server' | 'ungueltig' (Anfrage selbst abgelehnt, z. B. Datei unbrauchbar). */

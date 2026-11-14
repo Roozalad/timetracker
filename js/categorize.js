@@ -9,8 +9,8 @@
    Datenschutz (Abschnitt 3, Regel 5): Von jedem Topf gehen nur id, hinweise und unter (id, name) hinaus,
    archivierte Toepfe gar nicht, auch wenn der Aufrufer vollstaendige Topf-Objekte uebergibt.
    Die Anfrage setzt store:false, damit OpenAI die Antwort nicht zum spaeteren Abruf speichert. */
-import { CONFIG } from './config.js?v=0.4.1';
-import { getKey, maskiere } from './key.js?v=0.4.1';
+import { CONFIG } from './config.js?v=0.4.2';
+import { getKey, maskiere } from './key.js?v=0.4.2';
 
 /** Wird am Eintrag als promptVersion gespeichert. Bei jeder Aenderung an SYSTEMPROMPT oder Schema hochzaehlen. */
 export const PROMPT_VERSION = 'zuordnung-4';

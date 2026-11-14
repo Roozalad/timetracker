@@ -2,7 +2,7 @@
 /* Testdaten-Erzeuger (Paket F, Abschnitt 6). Reine Funktionen: kein Datenbankzugriff, kein Netz, keine Seite.
    Liefert { eintraege, segmente } im Datenmodell. Alle Datensaetze tragen testdaten: true.
    Ids sind lokal (1, 2, ...); die Seite vergibt beim Einspielen neue Ids und setzt eintragId um. */
-import { tagesBeginn, fensterStartFuer } from '../js/zeit.js?v=0.4.1';
+import { tagesBeginn, fensterStartFuer } from '../js/zeit.js?v=0.4.2';
 
 const MINUTE = 60 * 1000;
 const NACHT_ENDE = 24 * 60 - 20; // spaeteste Endzeit: 03:40, Minuten nach 04:00 des Tages

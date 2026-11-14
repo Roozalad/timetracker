@@ -2,13 +2,13 @@
 /* Ansicht Einstellungen. Paket A: API-Key (eintragen, ersetzen, entfernen) und Info mit Version und aufklappbarem
    Protokoll. Paket E: Toepfe (Liste, Anlegen, Bearbeiten, Reihenfolge, Archiv, Unterpunkte) und Daten (Export,
    Import, Alles loeschen). baueExport und pruefeImport sind ohne Seite pruefbar (tests/einstellungen.test.js). */
-import { CONFIG } from './config.js?v=0.4.1';
-import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.1';
-import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.1';
-import { frage } from './ui-korrektur.js?v=0.4.1';
-import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.1';
-import * as db from './db.js?v=0.4.1';
-import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.1';
+import { CONFIG } from './config.js?v=0.4.2';
+import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.2';
+import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.2';
+import { frage } from './ui-korrektur.js?v=0.4.2';
+import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.2';
+import * as db from './db.js?v=0.4.2';
+import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.2';
 
 export const EXPORT_APP = 'zeiterfassung';
 export const EXPORT_FORMAT = 1;
@@ -409,18 +409,49 @@ export function initSettings(root, ctx = {}) {
     letzter.textContent = t ? `Letzter Export: ${new Date(t).toLocaleString('de-DE')}` : 'Noch nie exportiert.';
   }
 
+  /* Export. Auf dem iPhone laeuft ein Download aus der Homescreen-App oft ins Leere; dort geht die Datei ueber das
+     Teilen-Menue ("In Dateien sichern"). Der Zeitpunkt fuer die Erinnerung (8.3) wird nur gesetzt, wenn das Teilen
+     abgeschlossen wurde; ein Abbruch gilt nicht als Sicherung. Am PC bleibt der normale Download. */
+  let teilenKnopf = null;
+  function exportErledigt(b) {
+    try { localStorage.setItem(LETZTER_EXPORT, String(Date.now())); } catch (_) {}
+    log(`Export: ${b.toepfe.length} Töpfe, ${b.eintraege.length} Einträge, ${b.segmente.length} Segmente`);
+    zeigeMeldung(datenMeldung, `Export gesichert: ${b.toepfe.length} Töpfe, ${b.eintraege.length} Einträge, ${b.segmente.length} Segmente.`, true);
+    zeigeLetzter();
+  }
+  function teilenKnopfWeg() { if (teilenKnopf) { teilenKnopf.remove(); teilenKnopf = null; } }
+  async function teilen(datei, b) {
+    teilenKnopfWeg();
+    try {
+      await navigator.share({ files: [datei], title: 'Zeiterfassung Export' });
+      exportErledigt(b);
+    } catch (err) {
+      const name = err && err.name;
+      if (name === 'AbortError') { zeigeMeldung(datenMeldung, 'Export abgebrochen. Es wurde nichts gesichert.'); return; }
+      if (name === 'NotAllowedError') {
+        // iOS verlangt das Teilen direkt nach einem Tipp; das Lesen der Daten hat zu lange gedauert. Zweiter Tipp.
+        zeigeMeldung(datenMeldung, 'Export ist vorbereitet. Bitte noch einmal tippen, um die Datei zu sichern.', true);
+        teilenKnopf = knopf('Datei sichern', () => teilen(datei, b));
+        datenAktionen.prepend(teilenKnopf);
+        return;
+      }
+      throw err;
+    }
+  }
   async function exportieren() {
+    teilenKnopfWeg();
     try {
       const b = await db.bestandLesen();
-      const url = URL.createObjectURL(new Blob([baueExport(b)], { type: 'application/json' }));
+      const name = `zeiterfassung-${datumDatei()}.json`;
+      const text = baueExport(b);
+      const datei = typeof File === 'function' ? new File([text], name, { type: 'application/json' }) : null;
+      if (datei && navigator.canShare && navigator.canShare({ files: [datei] })) { await teilen(datei, b); return; }
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
       const a = document.createElement('a');
-      a.href = url; a.download = `zeiterfassung-${datumDatei()}.json`;
+      a.href = url; a.download = name;
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-      try { localStorage.setItem(LETZTER_EXPORT, String(Date.now())); } catch (_) {}
-      log(`Export: ${b.toepfe.length} Töpfe, ${b.eintraege.length} Einträge, ${b.segmente.length} Segmente`);
-      zeigeMeldung(datenMeldung, `Export erstellt: ${b.toepfe.length} Töpfe, ${b.eintraege.length} Einträge, ${b.segmente.length} Segmente.`, true);
-      zeigeLetzter();
+      exportErledigt(b);
     } catch (err) {
       zeigeMeldung(datenMeldung, `Export fehlgeschlagen: ${(err && err.message) || ''}`);
     }

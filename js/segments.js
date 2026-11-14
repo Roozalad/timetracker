@@ -6,8 +6,8 @@
      blockVorgabe(ende, fensterStart)  Vorgabe fuer "Block von Hand"
    Gerechnet wird auf volle Minuten genau: zeit und fensterStart werden fuer die Begrenzung auf die Minute
    abgerundet, damit ein Block "bis eben" genau dort endet, wo die Uhr auf der Karte steht. */
-import { CONFIG } from './config.js?v=0.4.1';
-import { tagesBeginn } from './zeit.js?v=0.4.1';
+import { CONFIG } from './config.js?v=0.4.2';
+import { tagesBeginn } from './zeit.js?v=0.4.2';
 
 export const MIN_MS = 60000;
 export const UNKLAR = 'unklar';

@@ -7,7 +7,7 @@
    Dateiliste an VERSION; tests/offline.test.js prueft die Liste und dass alle Versionen gleich sind.
    Neue Datei der App: auch in die Liste in sw.js eintragen (der Test sagt, wenn etwas fehlt). */
 export const CONFIG = {
-  version: '0.4.1',
+  version: '0.4.2',
 
   // --- Speicher
   dbName: 'zeiterfassung',
