@@ -6,8 +6,8 @@
      blockVorgabe(ende, fensterStart)  Vorgabe fuer "Block von Hand"
    Gerechnet wird auf volle Minuten genau: zeit und fensterStart werden fuer die Begrenzung auf die Minute
    abgerundet, damit ein Block "bis eben" genau dort endet, wo die Uhr auf der Karte steht. */
-import { CONFIG } from './config.js?v=0.4.2';
-import { tagesBeginn } from './zeit.js?v=0.4.2';
+import { CONFIG } from './config.js?v=0.5.0';
+import { tagesBeginn } from './zeit.js?v=0.5.0';
 
 export const MIN_MS = 60000;
 export const UNKLAR = 'unklar';
@@ -166,6 +166,20 @@ export function einfuegen(bestand, neue, opt = {}) {
   return { segmente, loeschen, schreiben };
 }
 
+/** Welche bestehenden Bloecke ein Ergebnis von einfuegen() verdraengt: [{ segment, art: 'geloescht'|'gekuerzt' }],
+    nach Start sortiert. 'gekuerzt' umfasst auch geteilte Bloecke. ohne: id, die nicht zaehlt (der korrigierte Block). */
+export function verdraengt(bestand, ergebnis, ohne = null) {
+  const weg = new Set(ergebnis.loeschen || []);
+  const neu = new Map((ergebnis.segmente || []).filter((s) => s.id != null).map((s) => [s.id, s]));
+  const out = [];
+  for (const s of bestand || []) {
+    if (s.id == null || s.id === ohne) continue;
+    if (weg.has(s.id)) out.push({ segment: s, art: 'geloescht' });
+    else { const n = neu.get(s.id); if (n && (n.start !== s.start || n.ende !== s.ende)) out.push({ segment: s, art: 'gekuerzt' }); }
+  }
+  return out.sort((x, y) => x.segment.start - y.segment.start);
+}
+
 /** Paare ueberlappender Segmente (leer, wenn die Grundregel gilt). Fuer Tests und Pruefungen. */
 export function ueberlappungen(liste) {
   const l = [...liste].sort((x, y) => x.start - y.start || x.ende - y.ende);
@@ -183,4 +197,26 @@ export function blockVorgabe(ende, fensterStart = null, tagesStart = CONFIG.tage
   let s = fensterStart == null ? e - 30 * MIN_MS : minute(fensterStart);
   if (e - s < 5 * MIN_MS) s = e - 5 * MIN_MS;
   return { start: Math.max(s, tb), ende: e };
+}
+
+/** Vorgabe fuer "Block von Hand" in der Auswertung, fuer den (04:00-)Tag ab tagStart. Heute: bis jetzt, ab dem Ende
+    des letzten Blocks davor (sonst eine halbe Stunde). Vergangener Tag: eine halbe Stunde ab dem Ende des letzten
+    Blocks dieses Tags, ohne Block ab 09:00; nie ueber das Tagesende. Zukuenftiger Tag: null. */
+export function blockVorgabeFuerTag(tagStart, segmente, jetzt = Date.now(), tagesStart = CONFIG.tagesStart) {
+  const tb = tagesBeginn(tagStart, tagesStart);
+  const te = new Date(tb); te.setDate(te.getDate() + 1);
+  const tagEnde = te.getTime();
+  if (tb > jetzt) return null;
+  const imTag = (segmente || []).filter((s) => s.start < tagEnde && s.ende > tb);
+  if (jetzt < tagEnde) {
+    const davor = imTag.filter((s) => s.ende <= jetzt).reduce((m, s) => Math.max(m, s.ende), -Infinity);
+    return blockVorgabe(jetzt, davor === -Infinity ? null : davor, tagesStart);
+  }
+  const d = new Date(tb);
+  const neun = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0, 0, 0).getTime();
+  const letztes = imTag.reduce((m, s) => Math.max(m, s.ende), -Infinity);
+  let start = letztes === -Infinity ? Math.max(neun, tb) : minute(Math.min(letztes, tagEnde));
+  let ende = start + 30 * MIN_MS;
+  if (ende > tagEnde) { ende = tagEnde; start = ende - 30 * MIN_MS; }
+  return { start, ende };
 }

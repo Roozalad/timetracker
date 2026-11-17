@@ -2,8 +2,10 @@
 /* Aenderungen an Segmenten und Eintraegen, jeweils in EINER Datenbank-Transaktion (db.segmenteAendern),
    gerechnet mit der reinen Logik aus segments.js. Genutzt von Pipeline (Zuordnung), Karte und Korrekturblatt.
    Jede Korrektur der Nutzerin setzt quelle 'manuell' und verdraengt alles (7.4). */
-import * as db from './db.js?v=0.4.2';
-import { einfuegen, MIN_MS } from './segments.js?v=0.4.2';
+import * as db from './db.js?v=0.5.0';
+import { einfuegen, verdraengt, MIN_MS } from './segments.js?v=0.5.0';
+
+export const KONFLIKT = 'Inzwischen haben sich andere Blöcke geändert. Bitte nochmal speichern.';
 
 /** Schritt 3 der Pipeline: Eintrag aktualisieren und, falls neue Segmente uebergeben werden (auch eine leere Liste),
     die ki-Segmente dieses Eintrags durch sie ersetzen. Manuelle Segmente bleiben, die neuen werden um sie herum
@@ -24,31 +26,67 @@ function pruefe(b) {
   if (!b.topfId) throw new Error('Kein Topf gewählt');
 }
 
+function korrekturRechnen(bestand, id, aenderung) {
+  const alt = bestand.find((s) => s.id === id);
+  if (!alt) return null;
+  const zeitGeaendert = alt.start !== aenderung.start || alt.ende !== aenderung.ende;
+  const neu = { ...alt, ...aenderung, id, quelle: 'manuell', zeitQuelle: zeitGeaendert ? 'genannt' : alt.zeitQuelle };
+  return einfuegen(bestand.filter((s) => s.id !== id), [neu], { manuell: true });
+}
+function blockRechnen(bestand, b) {
+  return einfuegen(bestand, [{
+    eintragId: b.eintragId == null ? null : b.eintragId, topfId: b.topfId, unterId: b.unterId == null ? null : b.unterId,
+    start: b.start, ende: b.ende, text: b.text || '', quelle: 'manuell', zeitQuelle: 'genannt',
+  }], { manuell: true });
+}
+/** Liefert erg, wenn es nur Bloecke verdraengt, die die Nutzerin bestaetigt hat (erlaubt: ids), sonst null und
+    status.konflikt. Ohne erlaubt kein Abgleich (bisheriges Verhalten). */
+function abgleich(bestand, erg, erlaubt, ohne, status) {
+  if (erg && Array.isArray(erlaubt)) {
+    const ok = new Set(erlaubt);
+    if (verdraengt(bestand, erg, ohne).some((v) => !ok.has(v.segment.id))) { status.konflikt = true; return null; }
+  }
+  return erg;
+}
+
+/** Vorschau ohne Schreiben: welche anderen Bloecke die Korrektur loeschen oder kuerzen wuerde (siehe verdraengt()). */
+export async function korrekturVorschau(id, aenderung) {
+  const bestand = await db.listSegmente();
+  const erg = korrekturRechnen(bestand, id, aenderung);
+  return erg ? verdraengt(bestand, erg, id) : [];
+}
+/** Vorschau fuer "Block von Hand". */
+export async function blockVorschau(b) {
+  const bestand = await db.listSegmente();
+  return verdraengt(bestand, blockRechnen(bestand, b));
+}
+
 /** Korrektur eines Blocks: aenderung = { topfId, unterId, start, ende, text? }. Der Block behaelt seine id und seine
     Herkunft (eintragId), wird 'manuell' und verdraengt Nachbarn im neuen Zeitraum. Gibt es den Block nicht mehr (z. B.
-    inzwischen neu zugeordnet), wirft sie: das Korrekturblatt zeigt die Meldung, statt die Korrektur still zu verlieren. */
-export async function segmentKorrigieren(id, aenderung) {
+    inzwischen neu zugeordnet), wirft sie: das Korrekturblatt zeigt die Meldung, statt die Korrektur still zu verlieren.
+    opt.erlaubt: ids der Bloecke, deren Verdraengen die Nutzerin bestaetigt hat; verdraengt die Korrektur inzwischen
+    andere, wird nichts geschrieben und KONFLIKT geworfen. */
+export async function segmentKorrigieren(id, aenderung, opt = {}) {
   pruefe(aenderung);
   let gefunden = false;
+  const status = { konflikt: false };
   await db.segmenteAendern((bestand) => {
-    const alt = bestand.find((s) => s.id === id);
-    if (!alt) return null;
+    const erg = korrekturRechnen(bestand, id, aenderung);
+    if (!erg) return null;
     gefunden = true;
-    const zeitGeaendert = alt.start !== aenderung.start || alt.ende !== aenderung.ende;
-    const neu = { ...alt, ...aenderung, id, quelle: 'manuell', zeitQuelle: zeitGeaendert ? 'genannt' : alt.zeitQuelle };
-    return einfuegen(bestand.filter((s) => s.id !== id), [neu], { manuell: true });
+    return abgleich(bestand, erg, opt.erlaubt, id, status);
   });
   if (!gefunden) throw new Error('Der Block wurde inzwischen geändert oder gelöscht. Bitte das Blatt schließen und neu öffnen.');
+  if (status.konflikt) throw new Error(KONFLIKT);
   return true;
 }
 
-/** Block von Hand: b = { topfId, unterId, start, ende, text?, eintragId? }. */
-export async function blockAnlegen(b) {
+/** Block von Hand: b = { topfId, unterId, start, ende, text?, eintragId? }. opt.erlaubt wie bei segmentKorrigieren. */
+export async function blockAnlegen(b, opt = {}) {
   pruefe(b);
-  await db.segmenteAendern((bestand) => einfuegen(bestand, [{
-    eintragId: b.eintragId == null ? null : b.eintragId, topfId: b.topfId, unterId: b.unterId == null ? null : b.unterId,
-    start: b.start, ende: b.ende, text: b.text || '', quelle: 'manuell', zeitQuelle: 'genannt',
-  }], { manuell: true }));
+  const status = { konflikt: false };
+  await db.segmenteAendern((bestand) => abgleich(bestand, blockRechnen(bestand, b), opt.erlaubt, null, status));
+  if (status.konflikt) throw new Error(KONFLIKT);
 }
 
 export async function segmentLoeschen(id) {

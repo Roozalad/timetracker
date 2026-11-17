@@ -56,6 +56,15 @@ h1 { font-size: 22px; margin: 14px 0 8px; flex: none; }
 #rec.verarbeitet { background: #8a6d00; box-shadow: 0 0 0 8px rgba(138,109,0,.3); }
 #rec.fertig { background: #1b6b2f; box-shadow: 0 0 0 8px rgba(27,107,47,.3); }
 #rec.fehler { background: #7a1f1f; box-shadow: 0 0 0 8px rgba(255,107,107,.3); }
+#rec.wegwischen { transform: scale(.82); background: #4a4a4a; box-shadow: 0 0 0 6px rgba(255,255,255,.15); }
+#rec.verworfen-anim { animation: verworfen .5s ease-out; }
+@keyframes verworfen {
+  0%   { transform: scale(.82) rotate(0); opacity: 1; background: #4a4a4a; }
+  45%  { transform: scale(.4) rotate(-12deg); opacity: .15; background: #4a4a4a; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { #rec.verworfen-anim { animation-duration: .01s; } }
+.s-discard { background: #4a4a4a; }
 #rec .sek { display: block; font-size: 28px; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .listhead { font-size: 14px; color: #9a9a9a; text-transform: uppercase; letter-spacing: .05em; margin: 8px 0; }
 .results { list-style: none; margin: 0; padding: 0; }
@@ -112,7 +121,7 @@ button.gefahr-text { color: #ff8a8a; }
 .blatt-griff { align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #444; margin-bottom: 8px; flex: none; }
 .blatt-titel { font-size: 18px; margin: 0 0 8px; flex: none; }
 .blatt-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 4px; }
-.blatt-text { margin: 0 0 12px; }
+.blatt-text { margin: 0 0 12px; white-space: pre-line; }
 .kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .kachel {
   min-height: 64px; padding: 8px; border: 3px solid transparent; border-radius: 12px; color: #fff; font: inherit; font-size: 17px; font-weight: 700;
@@ -173,6 +182,7 @@ button.knopf-pfeil[disabled] { opacity: .35; }
 .umschalter button[aria-pressed="true"] { background: #eee; color: #111; font-weight: 700; }
 .unter-zeile { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
 .unter-zeile input { flex: 1 1 140px; }
+.unter-zeile input.unter-stichworte { flex: 1 1 100%; font-size: 14px; }
 .unter-zeile button.knopf { font-size: 14px; padding: 6px 10px; }
 .unter-hinweis { width: 100%; font-size: 12px; color: #9a9a9a; }
 .einst-aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -195,6 +205,7 @@ details.archiv summary { font-size: 15px; color: #bbb; }
 .st-pfeil { flex: none; width: 56px; min-height: 44px; border: 0; border-radius: 8px; background: #262626; color: #eee; font-size: 26px; line-height: 1; }
 .st-pfeil:active { background: #333; }
 .st-titel { flex: 1; min-width: 0; text-align: center; font-weight: 700; font-size: 16px; padding: 0 4px; }
+button.st-hand { display: block; margin: 0 auto 10px; font-size: 14px; }
 button.st-heute { display: block; margin: 8px auto 0; font-size: 14px; padding: 6px 14px; }
 .st-leer { margin-top: 8px; padding: 20px 16px; border-radius: 12px; background: #1a1a1a; color: #aaa; text-align: center; }
 .st-fussnote { margin-top: 8px; font-size: 13px; color: #9a9a9a; }

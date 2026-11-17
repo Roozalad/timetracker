@@ -1,8 +1,8 @@
 'use strict';
 /* categorize.js gegen ein falsches fetch. Kein echter Key, kein Netz. */
 import { test, gruppe, ok, eq, wirft, app } from './framework.js';
-import { FAELLE } from './zuordnung-faelle.js?v=0.4.2';
-import { attrappeFetch, antwortHuelle, jsonAntwort } from './zuordnung-attrappe.js?v=0.4.2';
+import { FAELLE } from './zuordnung-faelle.js?v=0.5.0';
+import { attrappeFetch, antwortHuelle, jsonAntwort } from './zuordnung-attrappe.js?v=0.5.0';
 
 const cat = await app('categorize');
 const key = await app('key');

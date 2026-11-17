@@ -1,17 +1,17 @@
 'use strict';
 /* Ansicht Aufnahme (8.1): Kopfzeile, Button, Bestaetigung, wartende Eintraege, Ergebniskarten der heutigen Eintraege
    mit Korrekturblatt, Block von Hand, "Neu zuordnen" und "Eintrag loeschen". */
-import { createRecorder } from './recorder.js?v=0.4.2';
-import * as pipeline from './pipeline.js?v=0.4.2';
-import * as db from './db.js?v=0.4.2';
-import * as aktionen from './aktionen.js?v=0.4.2';
-import { log } from './log.js?v=0.4.2';
-import { maskiere } from './key.js?v=0.4.2';
-import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.4.2';
-import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.4.2';
-import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.4.2';
-import { LETZTER_EXPORT } from './ui-settings.js?v=0.4.2';
-import { sicherungText, exportZeitAusText } from './sicherung.js?v=0.4.2';
+import { createRecorder } from './recorder.js?v=0.5.0';
+import * as pipeline from './pipeline.js?v=0.5.0';
+import * as db from './db.js?v=0.5.0';
+import * as aktionen from './aktionen.js?v=0.5.0';
+import { log } from './log.js?v=0.5.0';
+import { maskiere } from './key.js?v=0.5.0';
+import { uhrzeit, vorZeitText, dauerText, gleicherTag } from './zeit.js?v=0.5.0';
+import { UNKLAR, UNKLAR_FARBE, blockVorgabe } from './segments.js?v=0.5.0';
+import { zeigeKorrektur, frage } from './ui-korrektur.js?v=0.5.0';
+import { LETZTER_EXPORT } from './ui-settings.js?v=0.5.0';
+import { sicherungText, exportZeitAusText } from './sicherung.js?v=0.5.0';
 
 const STATUS_TEXT = {
   wartet_transkription: 'Wartet auf Transkription',
@@ -20,6 +20,14 @@ const STATUS_TEXT = {
   fehler: 'Fehler',
 };
 const BESTAETIGUNG_MS = 1500;
+const VERWORFEN_ANIM_MS = 500;
+/** So weit (px) muss der Finger ueber den Rand des Buttons hinaus, damit Loslassen die Aufnahme verwirft. */
+export const WISCH_ABSTAND = 50;
+
+/** Liegt der Finger (dx, dy relativ zur Button-Mitte) weit genug ausserhalb des runden Buttons? */
+export function istWeggewischt(dx, dy, radius, abstand = WISCH_ABSTAND) {
+  return Math.hypot(dx, dy) > radius + abstand;
+}
 const STIMMUNG_ZEICHEN = { '-2': '−−', '-1': '−', '0': '±0', '1': '+', '2': '++' };
 
 /** ctx: { zeigeAnsicht(name), dbFehler: Error|null } */
@@ -30,7 +38,10 @@ export function initRecord(root, ctx) {
 
   let recState = 'bereit', startedAt = 0, tick = null, pointerDown = false;
   let outcome = { kind: 'ready', text: 'Bereit', detail: '' };
-  let flash = null;               // kurze Bestaetigung "Gesendet": { text, bis }
+  let flash = null;               // kurze Bestaetigung "Gesendet" oder "Verworfen": { kind, text, bis }
+  let weggewischt = false;        // Finger liegt ausserhalb: Loslassen verwirft die Aufnahme
+  let mitte = null;               // { x, y, r } des Buttons beim Druecken
+  let verwirft = false;           // abbrechen() ist unterwegs: bis 'abgebrochen' grau statt "Beende Aufnahme" 
   let pipeBusy = false;
   let pipeFehlerSichtbar = false; // Fehlertext des letzten Laufs steht im Status (nicht noch einmal in der Wartebox)
   let laufMitFehlerEintrag = false;
@@ -46,10 +57,12 @@ export function initRecord(root, ctx) {
   function render() {
     let o;
     const jetzt = performance.now();
-    if (recState === 'beende') o = { kind: 'processing', text: 'Beende Aufnahme …', detail: '' };
+    if (recState === 'beende') o = verwirft ? { kind: 'discard', text: 'Wird verworfen …', detail: '' } : { kind: 'processing', text: 'Beende Aufnahme …', detail: '' };
     else if (recState === 'startet') o = { kind: 'starting', text: 'Mikrofon startet …', detail: outcome.detail };
-    else if (recState === 'nimmt_auf') o = { kind: 'recording', text: 'Nimmt auf …', detail: outcome.detail };
-    else if (flash && jetzt < flash.bis) o = { kind: 'done', text: flash.text, detail: '' };
+    else if (recState === 'nimmt_auf') o = weggewischt
+      ? { kind: 'discard', text: 'Loslassen zum Verwerfen', detail: 'Zurück auf den Button, um weiter aufzunehmen' }
+      : { kind: 'recording', text: 'Nimmt auf …', detail: outcome.detail || 'Zum Verwerfen vom Button wegziehen' };
+    else if (flash && jetzt < flash.bis) o = { kind: flash.kind || 'done', text: flash.text, detail: '' };
     else if (pipeBusy) o = { kind: 'processing', text: 'Verarbeitet …', detail: '' };
     else o = outcome;
     el.status.className = `status s-${o.kind}`;
@@ -58,11 +71,13 @@ export function initRecord(root, ctx) {
     el.dauer.hidden = !dauerHinweis; el.dauer.textContent = dauerHinweis;
 
     const aktiv = pointerDown && (recState === 'startet' || recState === 'nimmt_auf');
-    el.rec.classList.toggle('active', aktiv);
-    el.rec.classList.toggle('verarbeitet', !aktiv && o.kind === 'processing');
+    el.rec.classList.toggle('active', aktiv && !weggewischt);
+    el.rec.classList.toggle('wegwischen', (aktiv && weggewischt) || (verwirft && recState === 'beende'));
+    el.rec.classList.toggle('verarbeitet', !aktiv && o.kind === 'processing' && !verwirft);
     el.rec.classList.toggle('fertig', !aktiv && o.kind === 'done');
     el.rec.classList.toggle('fehler', !aktiv && o.kind === 'error');
-    if (recState === 'nimmt_auf') {
+    if (aktiv && weggewischt) el.rec.textContent = '✕ Verwerfen';
+    else if (recState === 'nimmt_auf') {
       el.rec.textContent = 'Aufnahme';
       const sek = document.createElement('span'); sek.className = 'sek'; sek.id = 'sek';
       sek.textContent = dauerText((performance.now() - startedAt) / 1000);
@@ -140,7 +155,8 @@ export function initRecord(root, ctx) {
   function oeffneKorrektur(s) {
     zeigeKorrektur({
       toepfe, segment: s, vorgabe: { start: s.start, ende: s.ende },
-      onSpeichern: async (a) => { await aktionen.segmentKorrigieren(s.id, a); await aktualisiere(); },
+      vorschau: (a) => aktionen.korrekturVorschau(s.id, a),
+      onSpeichern: async (a, opt) => { await aktionen.segmentKorrigieren(s.id, a, opt); await aktualisiere(); },
       onLoeschen: async () => { await aktionen.segmentLoeschen(s.id); await aktualisiere(); },
     });
   }
@@ -152,7 +168,8 @@ export function initRecord(root, ctx) {
       : blockVorgabe(jetzt, letzter && gleicherTag(letzter.zeit, jetzt) ? letzter.zeit : null);
     zeigeKorrektur({
       toepfe, segment: null, vorgabe,
-      onSpeichern: async (a) => { await aktionen.blockAnlegen({ ...a, eintragId: eintrag ? eintrag.id : null }); await aktualisiere(); },
+      vorschau: (a) => aktionen.blockVorschau({ ...a, eintragId: eintrag ? eintrag.id : null }),
+      onSpeichern: async (a, opt) => { await aktionen.blockAnlegen({ ...a, eintragId: eintrag ? eintrag.id : null }, opt); await aktualisiere(); },
     });
   }
   async function neuZuordnen(e) {
@@ -285,7 +302,7 @@ export function initRecord(root, ctx) {
     },
     async fertig(erg) {
       // Bestaetigung sofort, noch vor dem Speichern
-      flash = { text: 'Gesendet', bis: performance.now() + BESTAETIGUNG_MS };
+      flash = { kind: 'done', text: 'Gesendet', bis: performance.now() + BESTAETIGUNG_MS };
       try { if (navigator.vibrate) navigator.vibrate(30); } catch (_) {}
       outcome = { kind: 'done', text: 'Gesendet', detail: '' };
       render();
@@ -301,6 +318,17 @@ export function initRecord(root, ctx) {
         }).catch((err) => setOutcome('error', 'Fehler', `${maskiere(err && err.message)} – Aufnahme verloren (kein Speicher)`));
       }
       aktualisiere();
+    },
+    abgebrochen() {
+      // Wegwischen: kein Eintrag. Kurze Animation am Button, dann wieder bereit.
+      verwirft = false;
+      flash = { kind: 'discard', text: 'Aufnahme verworfen', bis: performance.now() + BESTAETIGUNG_MS };
+      outcome = { kind: 'ready', text: 'Bereit', detail: '' };
+      el.rec.classList.remove('verworfen-anim'); void el.rec.offsetWidth; // Animation neu starten
+      el.rec.classList.add('verworfen-anim');
+      setTimeout(() => el.rec.classList.remove('verworfen-anim'), VERWORFEN_ANIM_MS + 50);
+      render();
+      setTimeout(render, BESTAETIGUNG_MS + 50);
     },
     verworfen(info) {
       flash = null;
@@ -338,13 +366,31 @@ export function initRecord(root, ctx) {
 
   // ------------------------------------------------------------ Eingabe-Handling (iOS-fest, aus dem Spike)
   const btn = el.rec;
-  const losgelassen = () => { pointerDown = false; recorder.release(); render(); };
+  // Loslassen gibt die Aufnahme ab. Nur ein Loslassen ausserhalb (pointerup nach Wegwischen) verwirft sie;
+  // pointercancel und lostpointercapture (System, Anruf ...) geben immer ab, damit nichts still verloren geht.
+  const losgelassen = () => { pointerDown = false; weggewischt = false; recorder.release(); render(); };
   btn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    const r = btn.getBoundingClientRect();
+    mitte = { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.min(r.width, r.height) / 2 };
+    weggewischt = false; verwirft = false;
     pointerDown = true; recorder.press();
   });
-  btn.addEventListener('pointerup', (e) => { e.preventDefault(); losgelassen(); });
+  btn.addEventListener('pointermove', (e) => {
+    if (!pointerDown || !mitte || (recState !== 'startet' && recState !== 'nimmt_auf')) return;
+    const w = istWeggewischt(e.clientX - mitte.x, e.clientY - mitte.y, mitte.r);
+    if (w !== weggewischt) { weggewischt = w; render(); }
+  });
+  btn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    if (pointerDown && weggewischt) {
+      pointerDown = false; weggewischt = false;
+      verwirft = recState === 'nimmt_auf' || recState === 'startet';
+      recorder.abbrechen(); render(); return;
+    }
+    losgelassen();
+  });
   btn.addEventListener('pointercancel', losgelassen);
   btn.addEventListener('lostpointercapture', losgelassen);
   btn.addEventListener('contextmenu', (e) => e.preventDefault());

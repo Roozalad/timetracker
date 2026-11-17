@@ -5,15 +5,17 @@
    Neu gegenueber dem Spike: Rueckmeldung ueber Handler statt direkter DOM-Zugriffe, Zeitpunkt des
    Tastendrucks (zeit), Hoechstdauer 5 min, Protokollzeile "AUFNAHMEWEG".
 
-   createRecorder(handlers) -> { press(), release(), zustand() }
+   createRecorder(handlers) -> { press(), release(), abbrechen(), zustand() }
+     abbrechen(): wie release(), aber die Aufnahme wird verworfen statt abgegeben (Wegwischen vom Button).
    handlers (alle optional):
      zustand(z, info)  z: 'bereit' | 'startet' | 'nimmt_auf' | 'beende'; bei 'nimmt_auf' info.startedAt (performance.now)
      fertig(erg)       erg: { blob, dauerMs, weg: 'normal'|'wav-notfall', zeit }   zeit = Date.now() beim Druecken
      verworfen(info)   info: { grund: 'zu_kurz'|'zu_frueh_losgelassen'|'keine_daten', dauerMs, details }
+     abgebrochen(info) info: { dauerMs } nach abbrechen(); kein Eintrag, kein Audio
      fehler(info)      info: { art: 'mikrofon_verweigert'|'nicht_unterstuetzt'|'mikrofon'|'recorder', meldung }
      hinweis(text)     z. B. Hoechstdauer erreicht */
-import { CONFIG } from './config.js?v=0.4.2';
-import { log } from './log.js?v=0.4.2';
+import { CONFIG } from './config.js?v=0.5.0';
+import { log } from './log.js?v=0.5.0';
 
 // iOS Safari: audio/mp4 (AAC). Chrome/Android: audio/webm;codecs=opus. Zur Laufzeit erkennen.
 const MIME_CANDIDATES = [
@@ -55,6 +57,7 @@ export function createRecorder(handlers = {}) {
   let recording = false;        // false | 'starting' | true | 'stopping'
   let stream = null, idleTimer = null, mime = '';
   let pressed = false;          // Finger liegt gerade auf dem Button
+  let abbruch = false;          // abbrechen() waehrend 'starting': press() verwirft still
   let cur = null;               // aktuelle Aufnahme-Sitzung
   let pcmCtx = null;            // AudioContext fuer den WAV-Notfall-Mitschnitt (einmal pro Seite)
 
@@ -123,6 +126,7 @@ export function createRecorder(handlers = {}) {
   async function press() {
     if (recording) return;
     const pressZeit = Date.now();   // Moment des Drucks: massgeblich fuer den Eintrag
+    abbruch = false;
     pressed = true; recording = 'starting'; setZustand('startet');
     primePcmContext();
     let s;
@@ -147,12 +151,13 @@ export function createRecorder(handlers = {}) {
     if (!pressed) { // vor Mikrofon-Start losgelassen (z. B. Erlaubnis-Dialog) -> verwerfen
       recording = false; setZustand('bereit');
       releaseStreamSoon(false);
+      if (abbruch) { abbruch = false; log('abgebrochen vor Mikrofon-Start'); emit('abgebrochen', { dauerMs: 0 }); return; }
       emit('verworfen', { grund: 'zu_frueh_losgelassen', dauerMs: 0, details: 'Loslassen, bevor das Mikrofon bereit war. Nochmal halten.' });
       return;
     }
     mime = waehleMimeType((m) => MediaRecorder.isTypeSupported(m));
     const sess = { rec: null, chunks: [], nEvents: 0, bytes: 0, stopCalled: false, stopped: false, finished: false,
-                   timer: null, maxTimer: null, startedAt: 0, releaseTime: 0, pcm: null, zeit: pressZeit };
+                   timer: null, maxTimer: null, startedAt: 0, releaseTime: 0, pcm: null, zeit: pressZeit, abgebrochen: false };
     try { sess.rec = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s); }
     catch (e) {
       recording = false; pressed = false; setZustand('bereit');
@@ -220,6 +225,16 @@ export function createRecorder(handlers = {}) {
     // recording === 'starting': press() erkennt pressed=false selbst
   }
 
+  /** Aufnahme verwerfen (Wegwischen). Wirkt nur, solange der Finger noch als gedrueckt gilt: nach der
+      Hoechstdauer oder dem Wechsel in den Hintergrund ist die Aufnahme schon abgegeben und bleibt es. */
+  function abbrechen() {
+    const wasPressed = pressed;
+    pressed = false;
+    if (!wasPressed) return;
+    if (recording === 'starting') { abbruch = true; return; }
+    if (recording === true && cur) { cur.abgebrochen = true; stopRecording('abgebrochen'); }
+  }
+
   async function finishRecording(sess) {
     if (sess.finished) return;
     sess.finished = true; clearTimeout(sess.timer); clearTimeout(sess.maxTimer);
@@ -234,6 +249,11 @@ export function createRecorder(handlers = {}) {
     log(`ENDE ${durationMs.toFixed(0)}ms MediaRecorder: ${blob.size}B in ${sess.nEvents} Event(s), onstop=${sess.stopped} track=${trackState()}`);
     setZustand('bereit');
 
+    if (sess.abgebrochen) {
+      log(`abgebrochen nach ${durationMs.toFixed(0)} ms, Aufnahme verworfen`);
+      emit('abgebrochen', { dauerMs: durationMs });
+      return;
+    }
     if (durationMs < CONFIG.minRecordingMs) {
       log(`verworfen: zu kurz (${durationMs.toFixed(0)} ms)`);
       emit('verworfen', { grund: 'zu_kurz', dauerMs: durationMs, details: `${(durationMs / 1000).toFixed(1)} s (min. ${CONFIG.minRecordingMs / 1000} s)` });
@@ -263,5 +283,5 @@ export function createRecorder(handlers = {}) {
     if (!recording) releaseStreamSoon(true); // sonst beendet finishRecording den Stream
   });
 
-  return { press, release, zustand: () => recording };
+  return { press, release, abbrechen, zustand: () => recording };
 }

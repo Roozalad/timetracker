@@ -5,9 +5,12 @@
        segment gesetzt: ein Tipp auf einen Topf wechselt ihn, uebernimmt Zeiten und Unterpunkt und schliesst das Blatt.
        segment null (neuer Block): Topf waehlen, Zeiten einstellen, "Speichern".
        aenderung = { topfId, unterId, start, ende }. onSpeichern/onLoeschen duerfen werfen: die Meldung erscheint im Blatt.
+       vorschau(aenderung) optional -> Promise<[{ segment, art }]>: Bloecke, die das Speichern loeschen oder kuerzen
+         wuerde. Ist die Liste nicht leer, fragt das Blatt nach; onSpeichern(aenderung, { erlaubt: ids }) bekommt dann
+         die bestaetigten ids. Abbrechen laesst das Blatt offen.
      frage({ titel, text, ja, nein }) -> Promise<boolean> */
-import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.4.2';
-import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.4.2';
+import { uhrzeit, tagesBeginn, tagesEnde } from './zeit.js?v=0.5.0';
+import { UNKLAR, UNKLAR_FARBE, MIN_MS } from './segments.js?v=0.5.0';
 
 const SCHRITT = 5 * MIN_MS;
 
@@ -35,7 +38,18 @@ function blatt(titel, schliesse) {
   return { inhalt, entfernen() { document.removeEventListener('keydown', taste); hintergrund.remove(); } };
 }
 
-export function zeigeKorrektur({ toepfe, segment = null, vorgabe, onSpeichern, onLoeschen }) {
+/** "10:00–10:30 Startup · Mails: wird gelöscht" je verdraengtem Block, eine Zeile je Block. */
+export function verdraengtText(liste, toepfe) {
+  return liste.map(({ segment: s, art }) => {
+    const t = s.topfId === UNKLAR ? { name: 'Unklar', unter: [] } : toepfe.find((x) => x.id === s.topfId) || { name: String(s.topfId), unter: [] };
+    const u = s.unterId ? (t.unter || []).find((x) => x.id === s.unterId) : null;
+    const teile = [u ? `${t.name} › ${u.name}` : t.name];
+    if (s.text) teile.push(s.text);
+    return `${uhrzeit(s.start)}–${uhrzeit(s.ende)} ${teile.join(' · ')}: ${art === 'geloescht' ? 'wird gelöscht' : 'wird gekürzt'}`;
+  }).join('\n');
+}
+
+export function zeigeKorrektur({ toepfe, segment = null, vorgabe, onSpeichern, onLoeschen, vorschau = null }) {
   const neu = !segment;
   const st = segment
     ? { topfId: segment.topfId, unterId: segment.unterId, start: segment.start, ende: segment.ende }
@@ -55,13 +69,30 @@ export function zeigeKorrektur({ toepfe, segment = null, vorgabe, onSpeichern, o
   const aktionen = el('div', 'blatt-aktionen');
   root.append(kacheln, unterZeile, zeiten, meldung, aktionen);
 
+  const ABGEBROCHEN = {};
   async function ausfuehren(fn) {
     if (arbeitet) return;
     arbeitet = true; meldung.hidden = true;
     try { await fn(); schliessen(); }
-    catch (e) { arbeitet = false; meldung.hidden = false; meldung.textContent = (e && e.message) || 'Das hat nicht geklappt.'; }
+    catch (e) {
+      arbeitet = false;
+      if (e === ABGEBROCHEN) { zeichne(); return; }
+      meldung.hidden = false; meldung.textContent = (e && e.message) || 'Das hat nicht geklappt.';
+    }
   }
-  const speichern = () => ausfuehren(() => onSpeichern({ topfId: st.topfId, unterId: st.unterId, start: st.start, ende: st.ende }));
+  const speichern = () => ausfuehren(async () => {
+    const a = { topfId: st.topfId, unterId: st.unterId, start: st.start, ende: st.ende };
+    if (!vorschau) return onSpeichern(a);
+    const liste = await vorschau(a);
+    if (!liste.length) return onSpeichern(a, { erlaubt: [] });
+    const n = liste.length;
+    const ok = await frage({
+      titel: n === 1 ? 'Einen Block überschreiben?' : `${n} Blöcke überschreiben?`,
+      text: verdraengtText(liste, toepfe), ja: 'Überschreiben', gefahr: true,
+    });
+    if (!ok) throw ABGEBROCHEN;
+    return onSpeichern(a, { erlaubt: liste.map((v) => v.segment.id) });
+  });
 
   function kachel(id, name, farbe, dunkel) {
     const k = knopf(name, 'kachel', () => {

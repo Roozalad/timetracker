@@ -2,13 +2,13 @@
 /* Ansicht Einstellungen. Paket A: API-Key (eintragen, ersetzen, entfernen) und Info mit Version und aufklappbarem
    Protokoll. Paket E: Toepfe (Liste, Anlegen, Bearbeiten, Reihenfolge, Archiv, Unterpunkte) und Daten (Export,
    Import, Alles loeschen). baueExport und pruefeImport sind ohne Seite pruefbar (tests/einstellungen.test.js). */
-import { CONFIG } from './config.js?v=0.4.2';
-import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.4.2';
-import { logText, abonniereLog, leereLog, log } from './log.js?v=0.4.2';
-import { frage } from './ui-korrektur.js?v=0.4.2';
-import { ueberlappungen, UNKLAR } from './segments.js?v=0.4.2';
-import * as db from './db.js?v=0.4.2';
-import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.4.2';
+import { CONFIG } from './config.js?v=0.5.0';
+import { getKey, setKey, removeKey, keyEnde } from './key.js?v=0.5.0';
+import { logText, abonniereLog, leereLog, log } from './log.js?v=0.5.0';
+import { frage } from './ui-korrektur.js?v=0.5.0';
+import { ueberlappungen, UNKLAR } from './segments.js?v=0.5.0';
+import * as db from './db.js?v=0.5.0';
+import { dauerhaftText, abonniereDauer } from './dauerspeicher.js?v=0.5.0';
 
 export const EXPORT_APP = 'zeiterfassung';
 export const EXPORT_FORMAT = 1;
@@ -68,7 +68,8 @@ export function pruefeImport(text) {
       if (unterIds.has(u.id)) weh(`Unterpunkt-Kennung ${u.id} kommt doppelt vor`);
       unterIds.add(u.id); unterVon[t.id].add(u.id);
       if (typeof u.name !== 'string' || !u.name.trim() || u.name.length > NAME_MAX) weh(`${t.id}/${u.id}: Name fehlt`);
-      return { id: u.id, name: u.name, ...(typeof u.archiviert === 'boolean' ? { archiviert: u.archiviert } : {}) };
+      if (u.hinweise != null && typeof u.hinweise !== 'string') weh(`${t.id}/${u.id}: Hinweise ungültig`);
+      return { id: u.id, name: u.name, ...(u.hinweise ? { hinweise: u.hinweise } : {}), ...(typeof u.archiviert === 'boolean' ? { archiviert: u.archiviert } : {}) };
     });
     return {
       id: t.id, name: t.name, hinweise: t.hinweise == null ? '' : t.hinweise, farbe: t.farbe, bezahlt,
@@ -289,6 +290,7 @@ export function initSettings(root, ctx = {}) {
     box.append(hf);
 
     box.append(el('div', 'feld-titel', 'Unterpunkte'));
+    box.append(el('div', 'info', 'Name und Stichworte der Unterpunkte gehen an die KI und helfen bei der Zuordnung.'));
     if (!e.unter.length) box.append(el('p', 'info', 'Keine Unterpunkte.'));
     for (const u of e.unter) box.append(unterZeile(u));
     const neuU = document.createElement('input');
@@ -334,8 +336,13 @@ export function initSettings(root, ctx = {}) {
     ui.type = 'text'; ui.maxLength = NAME_MAX; ui.value = u.name; ui.autocomplete = 'off';
     ui.setAttribute('aria-label', `Unterpunkt ${u.name}`);
     ui.addEventListener('input', () => { u.name = ui.value; });
+    const hi = document.createElement('input');
+    hi.type = 'text'; hi.value = u.hinweise || ''; hi.autocomplete = 'off'; hi.className = 'unter-stichworte';
+    hi.placeholder = 'Stichworte (optional), z. B. Wäsche, Putzen';
+    hi.setAttribute('aria-label', `Stichworte für ${u.name}`);
+    hi.addEventListener('input', () => { u.hinweise = hi.value; });
     const n = st.zaehl.unter[`${e.id}/${u.id}`] || 0;
-    z.append(ui, knopf(u.archiviert ? 'Wiederherstellen' : 'Archivieren', () => { u.archiviert = !u.archiviert; zeichneToepfe(); }));
+    z.append(ui, hi, knopf(u.archiviert ? 'Wiederherstellen' : 'Archivieren', () => { u.archiviert = !u.archiviert; zeichneToepfe(); }));
     const loesch = knopf('Löschen', () => { e.unter = e.unter.filter((x) => x !== u); zeichneToepfe(); }, 'knopf gefahr');
     loesch.disabled = n > 0;
     z.append(loesch);
@@ -350,7 +357,10 @@ export function initSettings(root, ctx = {}) {
     if (!e) return false;
     const name = e.name.trim();
     if (!name) { st.meldung = 'Der Name fehlt.'; zeichneToepfe(); return false; }
-    const unter = e.unter.map((u) => ({ id: u.id, name: u.name.trim(), archiviert: !!u.archiviert }));
+    const unter = e.unter.map((u) => {
+      const hinweise = String(u.hinweise || '').trim();
+      return { id: u.id, name: u.name.trim(), ...(hinweise ? { hinweise } : {}), archiviert: !!u.archiviert };
+    });
     if (unter.some((u) => !u.name)) { st.meldung = 'Ein Unterpunkt hat keinen Namen.'; zeichneToepfe(); return false; }
     const alt = st.toepfe.find((t) => t.id === e.id);
     const topf = {

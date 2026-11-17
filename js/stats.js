@@ -7,9 +7,9 @@
      auswerten(segmente, toepfe, zr, jetzt)  Summen je Topf, Anteile, Bezahlt/Unbezahlt/Gesamt, Nicht erfasst
      skala / ausserhalb          Tagesspalte 7-23 Uhr und die Zeit ausserhalb davon
    Tage werden immer ueber Kalenderdaten gebildet (nie "+ 24 h"), damit Tage mit 23 oder 25 Stunden stimmen. */
-import { CONFIG } from './config.js?v=0.4.2';
-import { tagesBeginn } from './zeit.js?v=0.4.2';
-import { UNKLAR, UNKLAR_FARBE } from './segments.js?v=0.4.2';
+import { CONFIG } from './config.js?v=0.5.0';
+import { tagesBeginn } from './zeit.js?v=0.5.0';
+import { UNKLAR, UNKLAR_FARBE } from './segments.js?v=0.5.0';
 
 export const ARTEN = ['tag', 'woche', 'monat'];
 const WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];

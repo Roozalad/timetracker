@@ -2,12 +2,12 @@
 /* Ansicht Auswertung (8.2): Umschalter Tag/Woche/Monat, Pfeile, Tagesspalte oder Wochenspalten, Torte, Tabelle.
    Rechnen tut stats.js; hier wird nur gelesen (db.js) und gezeichnet. Ein Tipp auf einen Block im Tag oeffnet das
    Korrekturblatt (ui-korrektur.js), danach wird neu gezeichnet. */
-import * as db from './db.js?v=0.4.2';
-import * as aktionen from './aktionen.js?v=0.4.2';
-import { uhrzeit } from './zeit.js?v=0.4.2';
-import { UNKLAR_FARBE } from './segments.js?v=0.4.2';
-import * as stats from './stats.js?v=0.4.2';
-import { zeigeKorrektur } from './ui-korrektur.js?v=0.4.2';
+import * as db from './db.js?v=0.5.0';
+import * as aktionen from './aktionen.js?v=0.5.0';
+import { uhrzeit } from './zeit.js?v=0.5.0';
+import { UNKLAR_FARBE, blockVorgabeFuerTag } from './segments.js?v=0.5.0';
+import * as stats from './stats.js?v=0.5.0';
+import { zeigeKorrektur } from './ui-korrektur.js?v=0.5.0';
 
 const ART_NAME = { tag: 'Tag', woche: 'Woche', monat: 'Monat' };
 const VON_H = 7, BIS_H = 23, STUNDEN = BIS_H - VON_H;
@@ -115,8 +115,20 @@ export function initStats(root) {
     if (!s) return;
     zeigeKorrektur({
       toepfe: zuletzt.toepfe, segment: s, vorgabe: { start: s.start, ende: s.ende },
-      onSpeichern: async (a) => { await aktionen.segmentKorrigieren(s.id, a); await zeichne(true); },
+      vorschau: (a) => aktionen.korrekturVorschau(s.id, a),
+      onSpeichern: async (a, opt) => { await aktionen.segmentKorrigieren(s.id, a, opt); await zeichne(true); },
       onLoeschen: async () => { await aktionen.segmentLoeschen(s.id); await zeichne(true); },
+    });
+  }
+
+  /** Block von Hand fuer den angezeigten Tag, auch rueckwirkend (z. B. gestern vergessen). */
+  function oeffneHandblock(tagStart) {
+    const vorgabe = blockVorgabeFuerTag(tagStart, zuletzt.segmente, Date.now());
+    if (!vorgabe) return;
+    zeigeKorrektur({
+      toepfe: zuletzt.toepfe, segment: null, vorgabe,
+      vorschau: (a) => aktionen.blockVorschau({ ...a, eintragId: null }),
+      onSpeichern: async (a, opt) => { await aktionen.blockAnlegen({ ...a, eintragId: null }, opt); await zeichne(true); },
     });
   }
 
@@ -227,6 +239,11 @@ export function initStats(root) {
     const erg = stats.auswerten(alle, toepfe, zr, Date.now());
 
     const teile = [kopf()];
+    if (zr.art === 'tag' && zr.start <= Date.now()) {
+      const b = knopf('+ Block von Hand', 'knopf st-hand', () => oeffneHandblock(zr.start));
+      b.setAttribute('aria-label', `Block von Hand für ${stats.titel(zr)}`);
+      teile.push(b);
+    }
     if (erg.leer) {
       teile.push(el('div', 'st-leer', `Für ${zr.art === 'tag' ? 'diesen Tag' : zr.art === 'woche' ? 'diese Woche' : 'diesen Monat'} sind keine Einträge erfasst.`));
     } else {

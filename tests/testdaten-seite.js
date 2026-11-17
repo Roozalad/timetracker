@@ -1,8 +1,8 @@
 'use strict';
 /* Testdaten-Seite (Paket F): spielt Testdaten in die ECHTE App-Datenbank dieses Browsers ein oder entfernt sie.
    Entfernt wird nur, was mit testdaten: true markiert ist. Keine Netzaufrufe, kein Key. */
-import { erzeugeTestdaten, zufallsgenerator } from './testdaten.js?v=0.4.2';
-import { ABLAGEN, transaktion, listToepfe, listEintraege, listSegmente } from '../js/db.js?v=0.4.2';
+import { erzeugeTestdaten, zufallsgenerator } from './testdaten.js?v=0.5.0';
+import { ABLAGEN, transaktion, listToepfe, listEintraege, listSegmente } from '../js/db.js?v=0.5.0';
 
 const SAATGUT = 20261114; // fester Startwert: gleiche Testdaten bei jedem Einspielen (bis auf die Uhrzeiten, die vom Jetzt abhaengen)
 const $ = (id) => document.getElementById(id);

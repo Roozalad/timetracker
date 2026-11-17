@@ -2,12 +2,12 @@
 /* prompt-test.html: fuehrt alle Zuordnungs-Testfaelle gegen die echte API aus (oder mit ?attrappe=1 gegen
    eine Attrappe), jeden Fall mehrmals, und zeigt Soll, Ist und Abweichung. Der Rueckmelde-Text enthaelt
    weder Key noch Transkripte, nur Fall-IDs, Erwartungen, Kurzform der Antworten, Fehler und Verbrauch. */
-import { CONFIG } from '../js/config.js?v=0.4.2';
-import * as key from '../js/key.js?v=0.4.2';
-import { categorize, PROMPT_VERSION, SYSTEMPROMPT } from '../js/categorize.js?v=0.4.2';
-import { FAELLE } from './zuordnung-faelle.js?v=0.4.2';
-import { pruefeFall, kurzAntwort, kurzErwartung } from './zuordnung-auswertung.js?v=0.4.2';
-import { attrappeFetch } from './zuordnung-attrappe.js?v=0.4.2';
+import { CONFIG } from '../js/config.js?v=0.5.0';
+import * as key from '../js/key.js?v=0.5.0';
+import { categorize, PROMPT_VERSION, SYSTEMPROMPT } from '../js/categorize.js?v=0.5.0';
+import { FAELLE } from './zuordnung-faelle.js?v=0.5.0';
+import { pruefeFall, kurzAntwort, kurzErwartung } from './zuordnung-auswertung.js?v=0.5.0';
+import { attrappeFetch } from './zuordnung-attrappe.js?v=0.5.0';
 
 const $ = (id) => document.getElementById(id);
 const ATTRAPPE = new URLSearchParams(location.search).has('attrappe');

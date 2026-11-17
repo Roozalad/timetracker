@@ -1,7 +1,7 @@
 'use strict';
 /* Reine Zeit-Logik (kein DOM, keine Datenbank): Tag-Regel mit 04:00-Grenze, Zeitfenster, Formate.
    Zeiten sind Millisekunden seit 1970, in Ortszeit des Geraets gedeutet (Abschnitt 6). */
-import { CONFIG } from './config.js?v=0.4.2';
+import { CONFIG } from './config.js?v=0.5.0';
 
 /** Beginn des (04:00-)Tages, zu dem ms gehoert, als ms. */
 export function tagesBeginn(ms, tagesStart = CONFIG.tagesStart) {
